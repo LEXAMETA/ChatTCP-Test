@@ -91,13 +91,11 @@ module.exports = {
         experiments: {
             typedRoutes: true,
         },
-        extra: {
+                extra: {
             router: {
                 origin: false,
             },
             eas: {
-                // projectId: 'ce93f56a-bd21-4337-a364-f93f2356441d',
+                projectId: 'ce93f56a-bd21-4337-a364-f93f2356441d', // <--- ADD THIS LINE WITH YOUR NEW ID
             },
         },
-    },
-}
