@@ -72,9 +72,10 @@ jobs:
       - name: Install dependencies
         run: npm ci --legacy-peer-deps
       - name: Install EAS CLI
-        run: npm install -g eas-cli@14.5.0
-      - name: Verify EAS config
-        run: eas build:inspect --platform android --profile production --output dir --stage archive
+        # Use latest version or a specific recent one (e.g., eas-cli@16.13.1 or eas-cli@latest)
+        run: npm install -g eas-cli@latest 
+      - name: Log in to EAS
+        run: eas login --token=$EXPO_TOKEN
       - name: Build APK
         run: eas build --platform android --profile production --non-interactive > eas-build.log 2>&1 || (cat eas-build.log && exit 1)
       - name: Check APK output
@@ -91,3 +92,4 @@ jobs:
         with:
           name: android-apk
           path: dist/*.apk
+          
