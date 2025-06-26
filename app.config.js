@@ -96,7 +96,7 @@ module.exports = {
                 origin: false,
             },
             eas: {
-                // projectId: 'placeholder',
+                // projectId: 'ce93f56a-bd21-4337-a364-f93f2356441d',
             },
         },
     },
