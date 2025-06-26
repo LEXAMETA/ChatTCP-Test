@@ -91,11 +91,14 @@ module.exports = {
         experiments: {
             typedRoutes: true,
         },
-                extra: {
+        // --- The 'extra' block HAS BEEN MOVED HERE ---
+        extra: {
             router: {
                 origin: false,
             },
             eas: {
-                projectId: 'ce93f56a-bd21-4337-a364-f93f2356441d', // <--- ADD THIS LINE WITH YOUR NEW ID
+                projectId: 'ce93f56a-bd21-4337-a364-f93f2356441d',
             },
-        },
+        } // No comma here, as 'extra' is the last property of 'expo'
+    }, // This closes the 'expo' object
+}; // This closes the 'module.exports' object
