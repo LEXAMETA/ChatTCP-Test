@@ -75,6 +75,7 @@ const UserListing: React.FC<CharacterListingProps> = ({ user }) => {
                     label: 'Clone User',
                     onPress: async () => {
                         menuRef.current?.close()
+                        // Use duplicateCard from mutate namespace
                         await Characters.db.mutate.duplicateCard(user.id)
                     },
                 },
@@ -90,7 +91,8 @@ const UserListing: React.FC<CharacterListingProps> = ({ user }) => {
             <TouchableOpacity
                 style={styles.longButton}
                 onPress={async () => {
-                    await setCard(user.id)
+                    // Ensure user.id is number
+                    await setCard(Number(user.id))
                     setShowDrawer(false)
                 }}>
                 <View
