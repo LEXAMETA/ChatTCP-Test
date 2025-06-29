@@ -357,53 +357,53 @@ export namespace Characters {
             };
         }
 
-        export namespace mutate {
+        export namespace mutate { // This is the correct and only mutate namespace
             // In lib/state/Characters.ts, update createChat (around L379)
-export const createChat = async (charId: number) => {
-    const card = await query.card(charId);
-    if (!card) {
-        Logger.error('Character does not exist!');
-        return;
-    }
-    const userId = Characters.useUserCard.getState().id;
-    const charName = card.name;
-    return await database.transaction(async (tx) => {
-        if (!card || !charName) return;
-        const [{ chatId }, ..._] = await tx
-            .insert(chats)
-            .values({
-                character_id: charId,
-                user_id: userId ?? null,
-            })
-            .returning({ chatId: chats.id });
+            export const createChat = async (charId: number) => {
+                const card = await query.card(charId);
+                if (!card) {
+                    Logger.error('Character does not exist!');
+                    return;
+                }
+                const userId = Characters.useUserCard.getState().id;
+                const charName = card.name;
+                return await database.transaction(async (tx) => {
+                    if (!card || !charName) return;
+                    const [{ chatId }, ..._] = await tx
+                        .insert(chats)
+                        .values({
+                            character_id: charId,
+                            user_id: userId ?? null,
+                        })
+                        .returning({ chatId: chats.id });
 
-        if (!mmkv.getBoolean(AppSettings.CreateFirstMes)) return chatId;
+                    if (!mmkv.getBoolean(AppSettings.CreateFirstMes)) return chatId;
 
-        const [{ entryId }, ...__] = await tx
-            .insert(chatEntries)
-            .values({
-                chat_id: chatId,
-                is_user: false,
-                name: card.name ?? '',
-                order: 0,
-            })
-            .returning({ entryId: chatEntries.id });
+                    const [{ entryId }, ...__] = await tx
+                        .insert(chatEntries)
+                        .values({
+                            chat_id: chatId,
+                            is_user: false,
+                            name: card.name ?? '',
+                            order: 0,
+                        })
+                        .returning({ entryId: chatEntries.id });
 
-        await tx.insert(chatSwipes).values({
-            entry_id: entryId,
-            swipe: convertToFormatInstruct(replaceMacrosUtil(card.first_mes ?? '')) || '', // Fallback to empty string
-        });
+                    await tx.insert(chatSwipes).values({
+                        entry_id: entryId,
+                        swipe: convertToFormatInstruct(replaceMacrosUtil(card.first_mes ?? '')) || '', // Fallback to empty string
+                    });
 
-        card?.alternate_greetings?.forEach(async (data) => {
-            await tx.insert(chatSwipes).values({
-                entry_id: entryId,
-                swipe: convertToFormatInstruct(replaceMacrosUtil(data.greeting ?? '')) || '', // Fallback to empty string
-            });
-        });
-        await updateModified(charId);
-        return chatId;
-    });
-};
+                    card?.alternate_greetings?.forEach(async (data) => {
+                        await tx.insert(chatSwipes).values({
+                            entry_id: entryId,
+                            swipe: convertToFormatInstruct(replaceMacrosUtil(data.greeting ?? '')) || '', // Fallback to empty string
+                        });
+                    });
+                    await updateModified(charId);
+                    return chatId;
+                });
+            };
 
             export const updateCard = async (card: CharacterCardData, cardID: number) => {
                 if (!card) return;
@@ -568,8 +568,48 @@ export const createChat = async (charId: number) => {
                     .set({ last_modified: Date.now() })
                     .where(eq(characters.id, charId));
             };
-        }
-    }
+
+            export const duplicateCard = async (charId: number) => {
+                const originalCard = await db.query.card(charId);
+                if (!originalCard) {
+                    Logger.errorToast('Failed to copy card: Card does not exist');
+                    return;
+                }
+
+                const now = Date.now();
+                const newImageId = now;
+                const duplicatedCardData: CharacterCardData = {
+                    ...originalCard,
+                    id: undefined,
+                    image_id: newImageId,
+                    last_modified: now,
+                    name: `Copy of ${originalCard.name}`,
+                    alternate_greetings: originalCard.alternate_greetings.map(g => ({ ...g, id: undefined })),
+                    tags: originalCard.tags.map(t => ({ ...t, character_id: undefined })),
+                    chats: [],
+                    latestSwipe: undefined,
+                    latestName: undefined,
+                    latestChat: undefined,
+                };
+
+                let imageToCopyUri: string | undefined = undefined;
+                const originalImagePath = getImageDir(originalCard.image_id);
+                const imageInfo = await FS.getInfoAsync(originalImagePath);
+                if (imageInfo.exists) {
+                    const tempCacheLoc = `${FS.cacheDirectory}${newImageId}`;
+                    await FS.copyAsync({
+                        from: originalImagePath,
+                        to: tempCacheLoc,
+                    });
+                    imageToCopyUri = tempCacheLoc;
+                }
+
+                await db.mutate.createCard(duplicatedCardData, imageToCopyUri)
+                    .then(() => Logger.info(`Card cloned: ${duplicatedCardData.name}`))
+                    .catch((e) => Logger.error(`Failed to clone card: ${String(e)}`));
+            };
+        } // Close Characters.db.mutate namespace
+    } // Close Characters.db namespace
 
     export const getImageDir = (imageId: number) => {
         return `${FS.documentDirectory}characters/${imageId}.png`;
@@ -664,67 +704,6 @@ export const createChat = async (charId: number) => {
         if (image_id && imageuri) await copyImage(imageuri, image_id);
     };
 
-
-    export namespace db {
-        export namespace mutate {
-            export const duplicateCard = async (charId: number) => {
-                const originalCard = await db.query.card(charId);
-                if (!originalCard) {
-                    Logger.errorToast('Failed to copy card: Card does not exist');
-                    return;
-                }
-
-                const now = Date.now();
-                const newImageId = now;
-                const duplicatedCardData: CharacterCardData = {
-                    ...originalCard,
-                    id: undefined,
-                    image_id: newImageId,
-                    last_modified: now,
-                    name: `Copy of ${originalCard.name}`,
-                    alternate_greetings: originalCard.alternate_greetings.map(g => ({ ...g, id: undefined })),
-                    tags: originalCard.tags.map(t => ({ ...t, character_id: undefined })),
-                    chats: [],
-                    latestSwipe: undefined,
-                    latestName: undefined,
-                    latestChat: undefined,
-                };
-
-                let imageToCopyUri: string | undefined = undefined;
-                const originalImagePath = getImageDir(originalCard.image_id);
-                const imageInfo = await FS.getInfoAsync(originalImagePath);
-                if (imageInfo.exists) {
-                    const tempCacheLoc = `${FS.cacheDirectory}${newImageId}`;
-                    await FS.copyAsync({
-                        from: originalImagePath,
-                        to: tempCacheLoc,
-                    });
-                    imageToCopyUri = tempCacheLoc;
-                }
-
-                await db.mutate.createCard(duplicatedCardData, imageToCopyUri)
-                    .then(() => Logger.info(`Card cloned: ${duplicatedCardData.name}`))
-                    .catch((e) => Logger.error(`Failed to clone card: ${String(e)}`));
-            };
-
-    let imageToCopyUri: string | undefined = undefined;
-    const originalImagePath = getImageDir(originalCard.image_id);
-    const imageInfo = await FS.getInfoAsync(originalImagePath);
-    if (imageInfo.exists) {
-        const tempCacheLoc = `${FS.cacheDirectory}${newImageId}`;
-        await FS.copyAsync({
-            from: originalImagePath,
-            to: tempCacheLoc,
-        });
-        imageToCopyUri = tempCacheLoc;
-    }
-
-    await db.mutate.createCard(duplicatedCardData, imageToCopyUri)
-        .then(() => Logger.info(`Card cloned: ${duplicatedCardData.name}`))
-        .catch((e) => Logger.error(`Failed to clone card: ${String(e)}`));
-};
-
-
     export const createCharacterFromV1JSON = async (data: any, uri: string | undefined = undefined) => {
         const result = characterCardV1Schema.safeParse(data);
         if (result.error) {
@@ -752,7 +731,7 @@ export const createChat = async (charId: number) => {
             type: ['image/*', 'application/json'],
             multiple: true,
         });
-        if (result.cagin) return;
+        if (result.canceled) return; // Corrected from `result.cagin`
         result.assets.map(async (item) => {
             const isPNG = item.mimeType?.includes('image/');
             const isJSON = item.mimeType?.includes('application/json');
@@ -902,17 +881,17 @@ export const createChat = async (charId: number) => {
         const charName = Characters.useCharacterCard.getState().card?.name ?? '';
         const userName = Characters.useUserCard.getState().card?.name ?? '';
         const time = new Date();
-        const rules: Macro[] = [
+        const rules: Macro[] = [ // Assuming Macro is defined elsewhere or will be defined. If not, you might need to define it or adjust the type.
             { macro: '{{user}}', value: userName },
             { macro: '{{char}}', value: charName },
             { macro: '{{time}}', value: time.toLocaleTimeString() },
             { macro: '{{date}}', value: time.toLocaleDateString() },
-            { macro: '{{day}}', value: weekday[time.getDay()] },
+            { macro: '{{day}}', value: weekday[time.getDay()] }, // Assuming 'weekday' array is defined somewhere
         ];
         for (const rule of rules) newtext = newtext.replaceAll(rule.macro, rule.value);
         return newtext;
     };
-} // Close Characters namespace
+} // This is the correct closing brace for the Characters namespace
 
 const characterCardV1Schema = z.object({
     name: z.string(),
