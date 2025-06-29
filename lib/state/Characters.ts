@@ -541,12 +541,13 @@ export namespace Characters {
                     )
             }
 
-            export const updateModified = async (charID: number) => {
-                await database
-                    .update(characters)
-                    .set({ last_modified: Date.now() })
-                    .where(eq(characters.id, charID))
-            }
+            export const updateModified = async (charId: number) => {
+        await database
+            .update(characters)
+            .set({ last_modified: Date.now() })
+            .where(eq(characters.id, charId));
+    };
+}
 
             export const createCharacter = async (card: CharacterCardV2, imageuri: string = '') => {
                 // TODO : Extract CharacterBook value to Lorebooks, CharacterLorebooks
