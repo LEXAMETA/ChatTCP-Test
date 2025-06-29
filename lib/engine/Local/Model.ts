@@ -62,13 +62,27 @@ export namespace Model {
             if (result.canceled || !result.assets[0]) return;
             const file = result.assets[0];
             Logger.infoToast('Importing file...');
-            if (!file) {
-                Logger.errorToast('File Invalid');
+            if (!file.name) {
+                Logger.errorToast('Import Failed: File name is missing or invalid.');
                 return;
             }
-            if (await createModelDataExternal(file.uri, file.name, true))
-                Logger.infoToast(`Model Imported Successfully!`);
+            const filename: string = file.name; // Type-safe after check
+            if (await createModelDataExternal(file.uri, filename, true)) {
+                Logger.infoToast('Model Imported Successfully!');
+            }
         });
+    };
+
+    export const createModelDataExternal = async (
+        newdir: string,
+        filename: string,
+        deleteOnFailure: boolean = false
+    ) => {
+        if (!filename) {
+            Logger.errorToast('Filename invalid, Import Failed');
+            return false;
+        }
+        return setModelDataInternal(filename, newdir, deleteOnFailure);
     };
 
     export const verifyModelList = async () => {
