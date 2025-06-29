@@ -210,6 +210,69 @@ export namespace Model {
         if (!(await modelExists(name))) return;
         return await deleteAsync(`${AppDirectory.ModelPath}${name}`);
     };
-}
 
-// KV namespace remains unchanged
+    // === KV namespace added below ===
+    export namespace KV {
+        export const useKVState = create<KVStateProps>()(
+            persist(
+                (set, get) => ({
+                    kvCacheLoaded: false,
+                    kvCacheTokens: [],
+                    setKvCacheLoaded: (b: boolean) => {
+                        set((state) => ({ ...state, kvCacheLoaded: b }));
+                    },
+                    setKvCacheTokens: (tokens: number[]) => {
+                        set((state) => ({ ...state, kvCacheTokens: tokens }));
+                    },
+                    verifyKVCache: (tokens: number[]) => {
+                        const cachedTokens = get().kvCacheTokens;
+                        let matched = 0;
+                        const [a, b] =
+                            cachedTokens.length <= tokens.length
+                                ? [cachedTokens, tokens]
+                                : [tokens, cachedTokens];
+                        a.forEach((v, i) => {
+                            if (v === b[i]) matched++;
+                        });
+                        return {
+                            match: matched === a.length,
+                            cachedLength: cachedTokens.length,
+                            inputLength: tokens.length,
+                            matchLength: matched,
+                        };
+                    },
+                }),
+                {
+                    name: Storage.KV,
+                    partialize: (state) => ({
+                        kvCacheTokens: state.kvCacheTokens,
+                    }),
+                    storage: createJSONStorage(() => mmkvStorage),
+                    version: 1,
+                }
+            )
+        );
+
+        export const sessionFile = `${AppDirectory.SessionPath}llama-session.bin`;
+
+        export const getKVSize = async () => {
+            const data = await getInfoAsync(sessionFile);
+            return data.exists ? data.size : 0;
+        };
+
+        export const deleteKV = async () => {
+            if ((await getInfoAsync(sessionFile)).exists) {
+                await deleteAsync(sessionFile);
+            }
+        };
+
+        export const kvInfo = async () => {
+            const data = await getInfoAsync(sessionFile);
+            if (!data.exists) {
+                Logger.warn('No KV Cache found');
+                return;
+            }
+            Logger.info(`Size of KV cache: ${Math.floor(data.size * 0.000001)} MB`);
+        };
+    }
+}
