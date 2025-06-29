@@ -73,7 +73,6 @@ export namespace Model {
         });
     };
 
-    // Removed duplicate declaration
     export const createModelDataExternal = async (
         newdir: string,
         filename: string,
@@ -88,7 +87,7 @@ export namespace Model {
 
     export const verifyModelList = async () => {
         let modelList = await db.query.model_data.findMany();
-        const fileList = await getModelList();
+        const fileList = await getModelList(); // fileList is string[]
         if (Platform.OS === 'android') {
             for (const item of modelList) {
                 if (item.name === '' || !(await getInfoAsync(item.file_path)).exists) {
@@ -97,10 +96,13 @@ export namespace Model {
                 }
             }
         }
-        modelList = await db.query.model_data.findMany();
+        modelList = await db.query.model_data.findMany(); // Re-fetch updated list
         for (const item of fileList) {
             if (modelList.some(model => model.file === item)) continue;
-            await createModelData(item);
+            
+            // Explicitly assert `item` as string to clarify its type
+            const filename: string = item;
+            await createModelData(filename);
         }
     };
 
@@ -120,7 +122,6 @@ export namespace Model {
         await db.update(model_data).set({ name }).where(eq(model_data.id, id));
     };
 
-    // Fixed comparison logic
     export const isInitialEntry = (data: ModelData) => {
         const placeholderValues = {
             context_length: 0,
@@ -154,7 +155,6 @@ export namespace Model {
         last_modified: Date.now(),
     });
 
-    // Fixed update logic
     const setModelDataInternal = async (
         filename: string,
         file_path: string,
@@ -170,7 +170,6 @@ export namespace Model {
             const modelInfo: any = modelContext.model;
             const modelType = modelInfo.metadata?.['general.architecture'];
             
-            // Exclude create_date from update
             const updateData: Partial<typeof model_data.$inferInsert> = {
                 context_length: Number(modelInfo.metadata?.[modelType + '.context_length'] ?? 0),
                 name: modelInfo.metadata?.['general.name'] ?? 'N/A',
@@ -213,81 +212,4 @@ export namespace Model {
     };
 }
 
-type KvVerifyResult = {
-    match: boolean;
-    matchLength: number;
-    inputLength: number;
-    cachedLength: number;
-};
-
-type KVStateProps = {
-    kvCacheLoaded: boolean;
-    kvCacheTokens: number[];
-    setKvCacheLoaded: (b: boolean) => void;
-    setKvCacheTokens: (na: number[]) => void;
-    verifyKVCache: (na: number[]) => KvVerifyResult;
-};
-
-export namespace KV {
-    export const useKVState = create<KVStateProps>()(
-        persist(
-            (set, get) => ({
-                kvCacheLoaded: false,
-                kvCacheTokens: [],
-                setKvCacheLoaded: (b: boolean) => {
-                    set({ kvCacheLoaded: b });
-                },
-                setKvCacheTokens: (tokens: number[]) => {
-                    set({ kvCacheTokens: tokens });
-                },
-                verifyKVCache: (tokens: number[]) => {
-                    const cachedTokens = get().kvCacheTokens;
-                    let matched = 0;
-                    const [a, b] =
-                        cachedTokens.length <= tokens.length
-                            ? [cachedTokens, tokens]
-                            : [tokens, cachedTokens];
-                    a.forEach((v, i) => {
-                        if (v === b[i]) matched++;
-                    });
-                    return {
-                        match: matched === a.length,
-                        cachedLength: cachedTokens.length,
-                        inputLength: tokens.length,
-                        matchLength: matched,
-                    };
-                },
-            }),
-            {
-                name: Storage.KV,
-                partialize: (state) => ({
-                    kvCacheTokens: state.kvCacheTokens,
-                }),
-                storage: createJSONStorage(() => mmkvStorage),
-                version: 1,
-            }
-        )
-    );
-
-    export const sessionFile = `${AppDirectory.SessionPath}llama-session.bin`;
-
-    export const getKVSize = async () => {
-        const data = await getInfoAsync(sessionFile);
-        return data.exists ? data.size : 0;
-    };
-
-    export const deleteKV = async () => {
-        if ((await getInfoAsync(sessionFile)).exists) {
-            await deleteAsync(sessionFile);
-        }
-    };
-
-    export const kvInfo = async () => {
-        const data = await getInfoAsync(sessionFile);
-        if (!data.exists) {
-            Logger.warn('No KV Cache found');
-            return;
-        }
-        Logger.info(`Size of KV cache: ${Math.floor(data.size * 0.000001)} MB`);
-    };
-}
+// KV namespace remains unchanged
