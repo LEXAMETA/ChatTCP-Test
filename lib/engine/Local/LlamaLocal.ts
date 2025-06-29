@@ -7,7 +7,7 @@ import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 
 import { checkGGMLDeprecated } from './GGML'
-import { KV } from './Model'
+import { KV } from './Model';
 import { AppSettings } from '../../constants/GlobalValues'
 import { Logger } from '../../state/Logger'
 import { mmkv, mmkvStorage } from '../../storage/MMKV'
