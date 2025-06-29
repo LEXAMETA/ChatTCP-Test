@@ -1,7 +1,7 @@
 import { db as database } from '@db';
 import { Tokenizer } from '@lib/engine/Tokenizer';
 import { Storage } from '@lib/enums/Storage';
-import { replaceMacros as replaceMacrosUtil } from '@lib/utils/Macros'; // L4: Alias import
+import { replaceMacros as replaceMacrosUtil } from '@lib/utils/Macros';
 import { convertToFormatInstruct } from '@lib/utils/TextFormat';
 import { characterGreetings, characterTags, characters, chatEntries, chatSwipes, chats, tags } from 'db/schema';
 import { and, desc, eq, inArray, notInArray } from 'drizzle-orm';
@@ -14,7 +14,7 @@ import { z } from 'zod';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { Logger } from './Logger';
-import { mmkv } from '../storage/MMKV';
+import { mmkv, mmkvStorage } from '../storage/MMKV';
 import { getPngChunkText } from '../utils/PNG';
 import { Asset } from 'expo-asset';
 import { AppSettings } from '../constants/GlobalValues';
@@ -107,10 +107,10 @@ export namespace Characters {
                             personality_length: 0,
                             scenario_length: 0,
                         };
-                    const description = replaceMacros(card.description ?? '');
-                    const examples = replaceMacros(card.mes_example ?? '');
-                    const personality = replaceMacros(card.personality ?? '');
-                    const scenario = replaceMacros(card.scenario ?? '');
+                    const description = replaceMacrosUtil(card.description ?? '');
+                    const examples = replaceMacrosUtil(card.mes_example ?? '');
+                    const personality = replaceMacrosUtil(card.personality ?? '');
+                    const scenario = replaceMacrosUtil(card.scenario ?? '');
 
                     const getTokenCount = Tokenizer.getTokenizer();
 
@@ -128,7 +128,7 @@ export namespace Characters {
             }),
             {
                 name: Storage.UserCard,
-                storage: createJSONStorage(() => mmkvStorage),
+                storage: createJSONStorage(() => mmkvStorage), // L139: Fixed
                 version: 2,
                 migrate: async (persistedState: any, version) => {
                     if (version === 1) {
@@ -194,10 +194,10 @@ export namespace Characters {
                     personality_length: 0,
                     scenario_length: 0,
                 };
-            const description = replaceMacros(card.description ?? '');
-            const examples = replaceMacros(card.mes_example ?? '');
-            const personality = replaceMacros(card.personality ?? '');
-            const scenario = replaceMacros(card.scenario ?? '');
+            const description = replaceMacrosUtil(card.description ?? '');
+            const examples = replaceMacrosUtil(card.mes_example ?? '');
+            const personality = replaceMacrosUtil(card.personality ?? '');
+            const scenario = replaceMacrosUtil(card.scenario ?? '');
 
             const getTokenCount = Tokenizer.getTokenizer();
 
@@ -390,13 +390,13 @@ export namespace Characters {
 
                     await tx.insert(chatSwipes).values({
                         entry_id: entryId,
-                        swipe: convertToFormatInstruct(replaceMacros(card.first_mes ?? '')),
+                        swipe: convertToFormatInstruct(replaceMacrosUtil(card.first_mes ?? '')), // L379: Fixed
                     });
 
                     card?.alternate_greetings?.forEach(async (data) => {
                         await tx.insert(chatSwipes).values({
                             entry_id: entryId,
-                            swipe: convertToFormatInstruct(replaceMacros(data.greeting ?? '')),
+                            swipe: convertToFormatInstruct(replaceMacrosUtil(data.greeting ?? '')), // L399: Fixed
                         });
                     });
                     await Characters.db.mutate.updateModified(charId);
@@ -490,7 +490,7 @@ export namespace Characters {
                 }
             };
             
-
+            
             export const addAltGreeting = async (charId: number) => {
                 const [{ id }, ..._] = await database
                     .insert(characterGreetings)
