@@ -1,6 +1,8 @@
 import { db as database } from '@db';
 import { Tokenizer } from '@lib/engine/Tokenizer';
 import { Storage } from '@lib/enums/Storage';
+import { replaceMacros } from '@lib/utils/Macros';
+import { convertToFormatInstruct } from '@lib/utils/TextFormat';
 import { characterGreetings, characterTags, characters, chatEntries, chatSwipes, chats, tags } from 'db/schema';
 import { and, desc, eq, inArray, notInArray } from 'drizzle-orm';
 import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
@@ -12,42 +14,43 @@ import { z } from 'zod';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { Logger } from './Logger';
-import { mmkvStorage } from '../storage/MMKV';
+import { mmkv } from '../storage/MMKV';
 import { getPngChunkText } from '../utils/PNG';
 import { Asset } from 'expo-asset';
+import { AppSettings } from '../constants/GlobalValues';
 
 export type CharInfo = {
-    name: string
-    id: number
-    image_id: number
-    last_modified: number
-    tags: string[]
-    latestSwipe?: string
-    latestName?: string
-    latestChat?: number
-}
+    name: string;
+    id: number;
+    image_id: number;
+    last_modified: number;
+    tags: string[];
+    latestSwipe?: string;
+    latestName?: string;
+    latestChat?: number;
+};
 
 type CharacterTokenCache = {
-    otherName: string
-    description_length: number
-    examples_length: number
-    personality_length: number
-    scenario_length: number
-}
+    otherName: string;
+    description_length: number;
+    examples_length: number;
+    personality_length: number;
+    scenario_length: number;
+};
 
 type CharacterCardState = {
-    card?: CharacterCardData
-    tokenCache: CharacterTokenCache | undefined
-    id: number | undefined
-    updateCard: (card: CharacterCardData) => void
-    setCard: (id: number) => Promise<string | undefined>
-    unloadCard: () => void
-    getImage: () => string
-    updateImage: (sourceURI: string) => void
-    getCache: (otherName: string) => CharacterTokenCache
-}
+    card?: CharacterCardData;
+    tokenCache: CharacterTokenCache | undefined;
+    id: number | undefined;
+    updateCard: (card: CharacterCardData) => void;
+    setCard: (id: number) => Promise<string | undefined>;
+    unloadCard: () => void;
+    getImage: () => string;
+    updateImage: (sourceURI: string) => void;
+    getCache: (otherName: string) => CharacterTokenCache;
+};
 
-export type CharacterCardData = Awaited<ReturnType<typeof Characters.db.query.cardQuery>>
+export type CharacterCardData = Awaited<ReturnType<typeof Characters.db.query.cardQuery>>;
 
 export namespace Characters {
     export const useUserCard = create<CharacterCardState>()(
@@ -57,10 +60,10 @@ export namespace Characters {
                 card: undefined,
                 tokenCache: undefined,
                 setCard: async (id: number) => {
-                    const card = await db.query.card(id)
+                    const card = await db.query.card(id);
                     if (card)
-                        set((state) => ({ ...state, card: card, id: id, tokenCache: undefined }))
-                    return card?.name
+                        set((state) => ({ ...state, card: card, id: id, tokenCache: undefined }));
+                    return card?.name;
                 },
                 unloadCard: () => {
                     set((state) => ({
@@ -68,34 +71,34 @@ export namespace Characters {
                         id: undefined,
                         card: undefined,
                         tokenCache: undefined,
-                    }))
+                    }));
                 },
                 updateCard: (card: CharacterCardData) => {
-                    set((state) => ({ ...state, card: card }))
+                    set((state) => ({ ...state, card: card }));
                 },
                 getImage: () => {
-                    return getImageDir(get().card?.image_id ?? 0)
+                    return getImageDir(get().card?.image_id ?? 0);
                 },
                 updateImage: async (sourceURI: string) => {
-                    const id = get().id
-                    const oldImageID = get().card?.image_id
-                    const card = get().card
+                    const id = get().id;
+                    const oldImageID = get().card?.image_id;
+                    const card = get().card;
                     if (!id || !oldImageID || !card) {
-                        Logger.errorToast('Could not get data, something very wrong has happened!')
-                        return
+                        Logger.errorToast('Could not get data, something very wrong has happened!');
+                        return;
                     }
-                    const imageID = Date.now()
-                    await db.mutate.updateCardField('image_id', imageID, id)
-                    await deleteImage(oldImageID)
-                    await copyImage(sourceURI, imageID)
-                    card.image_id = imageID
-                    set((state) => ({ ...state, card: card }))
+                    const imageID = Date.now();
+                    await db.mutate.updateCardField('image_id', imageID, id);
+                    await deleteImage(oldImageID);
+                    await copyImage(sourceURI, imageID);
+                    card.image_id = imageID;
+                    set((state) => ({ ...state, card: card }));
                 },
                 getCache: (userName: string) => {
-                    const cache = get().tokenCache
-                    if (cache && cache?.otherName === userName) return cache
+                    const cache = get().tokenCache;
+                    if (cache && cache?.otherName === userName) return cache;
 
-                    const card = get().card
+                    const card = get().card;
                     if (!card)
                         return {
                             otherName: userName,
@@ -103,13 +106,13 @@ export namespace Characters {
                             examples_length: 0,
                             personality_length: 0,
                             scenario_length: 0,
-                        }
-                    const description = replaceMacros(card.description)
-                    const examples = replaceMacros(card.mes_example)
-                    const personality = replaceMacros(card.personality)
-                    const scenario = replaceMacros(card.scenario)
+                        };
+                    const description = replaceMacros(card.description ?? '');
+                    const examples = replaceMacros(card.mes_example ?? '');
+                    const personality = replaceMacros(card.personality ?? '');
+                    const scenario = replaceMacros(card.scenario ?? '');
 
-                    const getTokenCount = Tokenizer.getTokenizer()
+                    const getTokenCount = Tokenizer.getTokenizer();
 
                     const newCache: CharacterTokenCache = {
                         otherName: userName,
@@ -117,40 +120,39 @@ export namespace Characters {
                         examples_length: getTokenCount(examples),
                         personality_length: getTokenCount(personality),
                         scenario_length: getTokenCount(scenario),
-                    }
+                    };
 
-                    set((state) => ({ ...state, tokenCache: newCache }))
-                    return newCache
+                    set((state) => ({ ...state, tokenCache: newCache }));
+                    return newCache;
                 },
             }),
             {
                 name: Storage.UserCard,
                 storage: createJSONStorage(() => mmkvStorage),
                 version: 2,
-                partialize: (state) => ({ id: state.id, card: state.card }),
                 migrate: async (persistedState: any, version) => {
                     if (version === 1) {
-                        // migration from CharacterCardV2 to CharacterCardData
-                        Logger.info('Migrating User Store to v2')
-                        persistedState.id = undefined
-                        persistedState.card = undefined
+                        Logger.info('Migrating User Store to v2');
+                        persistedState.id = undefined;
+                        persistedState.card = undefined;
                     }
+                    return persistedState;
                 },
             }
         )
-    )
+    );
 
     export const useCharacterCard = create<CharacterCardState>()((set, get) => ({
         id: undefined,
         card: undefined,
         tokenCache: undefined,
         setCard: async (id: number) => {
-            const card = await db.query.card(id)
-            set((state) => ({ ...state, card: card, id: id, tokenCache: undefined }))
-            return card?.name
+            const card = await db.query.card(id);
+            set((state) => ({ ...state, card: card, id: id, tokenCache: undefined }));
+            return card?.name;
         },
         updateCard: (card: CharacterCardData) => {
-            set((state) => ({ ...state, card: card }))
+            set((state) => ({ ...state, card: card }));
         },
         unloadCard: () => {
             set((state) => ({
@@ -158,31 +160,31 @@ export namespace Characters {
                 id: undefined,
                 card: undefined,
                 tokenCache: undefined,
-            }))
+            }));
         },
         getImage: () => {
-            return getImageDir(get().card?.image_id ?? 0)
+            return getImageDir(get().card?.image_id ?? 0);
         },
         updateImage: async (sourceURI: string) => {
-            const id = get().id
-            const oldImageID = get().card?.image_id
-            const card = get().card
+            const id = get().id;
+            const oldImageID = get().card?.image_id;
+            const card = get().card;
             if (!id || !oldImageID || !card) {
-                Logger.errorToast('Could not get data, something very wrong has happned!')
-                return
+                Logger.errorToast('Could not get data, something very wrong has happened!');
+                return;
             }
-            const imageID = Date.now()
-            await db.mutate.updateCardField('image_id', imageID, id)
-            await deleteImage(oldImageID)
-            await copyImage(sourceURI, imageID)
-            card.image_id = imageID
-            set((state) => ({ ...state, card: card }))
+            const imageID = Date.now();
+            await db.mutate.updateCardField('image_id', imageID, id);
+            await deleteImage(oldImageID);
+            await copyImage(sourceURI, imageID);
+            card.image_id = imageID;
+            set((state) => ({ ...state, card: card }));
         },
         getCache: (charName: string) => {
-            const cache = get().tokenCache
-            const card = get().card
+            const cache = get().tokenCache;
+            const card = get().card;
             if (cache?.otherName && cache.otherName === useUserCard.getState().card?.name)
-                return cache
+                return cache;
 
             if (!card)
                 return {
@@ -191,13 +193,13 @@ export namespace Characters {
                     examples_length: 0,
                     personality_length: 0,
                     scenario_length: 0,
-                }
-            const description = replaceMacros(card.description)
-            const examples = replaceMacros(card.mes_example)
-            const personality = replaceMacros(card.personality)
-            const scenario = replaceMacros(card.scenario)
+                };
+            const description = replaceMacros(card.description ?? '');
+            const examples = replaceMacros(card.mes_example ?? '');
+            const personality = replaceMacros(card.personality ?? '');
+            const scenario = replaceMacros(card.scenario ?? '');
 
-            const getTokenCount = Tokenizer.getTokenizer()
+            const getTokenCount = Tokenizer.getTokenizer();
 
             const newCache = {
                 otherName: charName,
@@ -205,11 +207,11 @@ export namespace Characters {
                 examples_length: getTokenCount(examples),
                 personality_length: getTokenCount(personality),
                 scenario_length: getTokenCount(scenario),
-            }
-            set((state) => ({ ...state, tokenCache: newCache }))
-            return newCache
+            };
+            set((state) => ({ ...state, tokenCache: newCache }));
+            return newCache;
         },
-    }))
+    }));
 
     export namespace db {
         export namespace query {
@@ -227,13 +229,13 @@ export namespace Characters {
                         },
                         alternate_greetings: true,
                     },
-                })
-            }
+                });
+            };
 
             export const card = async (charId: number): Promise<CharacterCardData | undefined> => {
-                const data = await cardQuery(charId)
-                return data
-            }
+                const data = await cardQuery(charId);
+                return data;
+            };
 
             export const cardList = async (
                 type: 'character' | 'user',
@@ -284,7 +286,7 @@ export namespace Characters {
                     },
                     where: (characters, { eq }) => eq(characters.type, type),
                     orderBy: orderBy === 'id' ? characters.id : desc(characters.last_modified),
-                })
+                });
 
                 return query.map((item) => ({
                     ...item,
@@ -293,8 +295,8 @@ export namespace Characters {
                     latestName: item.chats[0]?.messages[0]?.name,
                     last_modified: item.last_modified ?? 0,
                     tags: item.tags.map((item) => item.tag.tag),
-                }))
-            }
+                }));
+            };
 
             export const cardListQuery = (
                 type: 'character' | 'user',
@@ -345,65 +347,65 @@ export namespace Characters {
                     },
                     where: (characters, { eq }) => eq(characters.type, type),
                     orderBy: orderBy === 'id' ? characters.id : desc(characters.last_modified),
-                })
-            }
+                });
+            };
 
             export const cardExists = async (charId: number) => {
                 return await database.query.characters.findFirst({
                     where: eq(characters.id, charId),
-                })
-            }
-        }
+                });
+            };
+        };
 
         export namespace mutate {
-    export const createChat = async (charId: number) => {
-      const card = await query.card(charId);
-      if (!card) {
-        Logger.error('Character does not exist!');
-        return;
-      }
-      const userId = Characters.useUserCard.getState().id;
-      const charName = card.name;
-      return await database.transaction(async (tx) => {
-        if (!card || !charName) return;
-        const [{ chatId }, ..._] = await tx
-          .insert(chats)
-          .values({
-            character_id: charId,
-            user_id: userId ?? null,
-          })
-          .returning({ chatId: chats.id });
+            export const createChat = async (charId: number) => {
+                const card = await query.card(charId);
+                if (!card) {
+                    Logger.error('Character does not exist!');
+                    return;
+                }
+                const userId = Characters.useUserCard.getState().id;
+                const charName = card.name;
+                return await database.transaction(async (tx) => {
+                    if (!card || !charName) return;
+                    const [{ chatId }, ..._] = await tx
+                        .insert(chats)
+                        .values({
+                            character_id: charId,
+                            user_id: userId ?? null,
+                        })
+                        .returning({ chatId: chats.id });
 
-        if (!mmkv.getBoolean(AppSettings.CreateFirstMes)) return chatId;
+                    if (!mmkv.getBoolean(AppSettings.CreateFirstMes)) return chatId;
 
-        const [{ entryId }, ...__] = await tx
-          .insert(chatEntries)
-          .values({
-            chat_id: chatId,
-            is_user: false,
-            name: card.name ?? '',
-            order: 0,
-          })
-          .returning({ entryId: chatEntries.id });
+                    const [{ entryId }, ...__] = await tx
+                        .insert(chatEntries)
+                        .values({
+                            chat_id: chatId,
+                            is_user: false,
+                            name: card.name ?? '',
+                            order: 0,
+                        })
+                        .returning({ entryId: chatEntries.id });
 
-        await tx.insert(chatSwipes).values({
-          entry_id: entryId,
-          swipe: convertToFormatInstruct(replaceMacros(card.first_mes ?? '')),
-        });
+                    await tx.insert(chatSwipes).values({
+                        entry_id: entryId,
+                        swipe: convertToFormatInstruct(replaceMacros(card.first_mes ?? '')),
+                    });
 
-        card?.alternate_greetings?.forEach(async (data) => {
-          await tx.insert(chatSwipes).values({
-            entry_id: entryId,
-            swipe: convertToFormatInstruct(replaceMacros(data.greeting)),
-          });
-        });
-        await updateModified(charId);
-        return chatId;
-      });
-    };
+                    card?.alternate_greetings?.forEach(async (data) => {
+                        await tx.insert(chatSwipes).values({
+                            entry_id: entryId,
+                            swipe: convertToFormatInstruct(replaceMacros(data.greeting ?? '')),
+                        });
+                    });
+                    await Characters.db.mutate.updateModified(charId);
+                    return chatId;
+                });
+            };
 
             export const updateCard = async (card: CharacterCardData, cardID: number) => {
-                if (!card) return
+                if (!card) return;
 
                 try {
                     await database
@@ -416,31 +418,28 @@ export namespace Characters {
                             scenario: card.scenario,
                             mes_example: card.mes_example,
                         })
-                        .where(eq(characters.id, cardID))
+                        .where(eq(characters.id, cardID));
                     await Promise.all(
                         card.alternate_greetings.map(async (item) => {
                             await database
                                 .update(characterGreetings)
                                 .set({ greeting: item.greeting })
-                                .where(eq(characterGreetings.id, item.id))
+                                .where(eq(characterGreetings.id, item.id));
                         })
-                    )
+                    );
                     if (card.tags) {
-                        // create { tag: string }[]
                         const newTags = card.tags
                             .filter((item) => item.tag_id === -1)
-                            .map((tag) => ({ tag: tag.tag.tag }))
+                            .map((tag) => ({ tag: tag.tag.tag }));
 
-                        // New tags are marked with -1
                         const currentTagIDs = card.tags
                             .filter((item) => item.tag_id !== -1)
                             .map((item) => ({
                                 character_id: card.id,
                                 tag_id: item.tag.id,
-                            }))
-                        const newTagIDs: (typeof characterTags.$inferSelect)[] = []
+                            }));
+                        const newTagIDs: (typeof characterTags.$inferSelect)[] = [];
 
-                        // optimistically add missing tags
                         if (newTags.length !== 0) {
                             await database
                                 .insert(tags)
@@ -449,26 +448,23 @@ export namespace Characters {
                                 .returning({
                                     id: tags.id,
                                 })
-                                // concat new tags to tagids
                                 .then((result) => {
                                     newTagIDs.push(
                                         ...result.map((item) => ({
                                             character_id: card.id,
                                             tag_id: item.id,
                                         }))
-                                    )
-                                })
+                                    );
+                                });
                         }
-                        const mergedTags = [...currentTagIDs, ...newTagIDs]
+                        const mergedTags = [...currentTagIDs, ...newTagIDs];
                         if (mergedTags.length !== 0)
                             await database
                                 .insert(characterTags)
                                 .values(mergedTags)
-                                .onConflictDoNothing()
+                                .onConflictDoNothing();
 
-                        const ids = mergedTags.map((item) => item.tag_id)
-                        // delete orphaned characterTags
-
+                        const ids = mergedTags.map((item) => item.tag_id);
                         await database
                             .delete(characterTags)
                             .where(
@@ -476,9 +472,8 @@ export namespace Characters {
                                     notInArray(characterTags.tag_id, ids),
                                     eq(characterTags.character_id, card.id)
                                 )
-                            )
+                            );
 
-                        // delete orphaned tags
                         await database
                             .delete(tags)
                             .where(
@@ -488,12 +483,13 @@ export namespace Characters {
                                         .select({ tag_id: characterTags.tag_id })
                                         .from(characterTags)
                                 )
-                            )
+                            );
                     }
                 } catch (e) {
-                    Logger.warn(`${e}`)
+                    Logger.warn(`${e}`);
                 }
-            }
+            };
+            
 
             export const addAltGreeting = async (charId: number) => {
                 const [{ id }, ..._] = await database
