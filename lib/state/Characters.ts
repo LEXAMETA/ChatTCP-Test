@@ -967,7 +967,6 @@ type Macro = {
 };
 
 const weekday = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
 export const replaceMacros = (text: string) => {
     if (text === undefined) return '';
     let newtext: string = text;
@@ -984,3 +983,6 @@ export const replaceMacros = (text: string) => {
     for (const rule of rules) newtext = newtext.replaceAll(rule.macro, rule.value);
     return newtext;
 };
+
+// Close Characters namespace here if not already closed
+    }
