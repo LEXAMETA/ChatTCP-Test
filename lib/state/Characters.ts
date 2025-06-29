@@ -128,6 +128,515 @@ export namespace Characters {
             }),
             {
                 name: Storage.UserCard,
+                storage: createJSONStorage(() => mmkvStorage),
+                version: 2,
+                migrate: async (persistedState: any, version) => {
+                    if (version === 1) {
+                        Logger.info('Migrating User Store to v2');
+                        persistedState.id = undefined;
+                        persistedState.card = undefined;
+                    }
+                    return persistedState;
+                },
+            }
+        )
+    );
+
+    export const useCharacterCard = create<CharacterCardState>()((set, get) => ({
+        id: undefined,
+        card: undefined,
+        tokenCache: undefined,
+        setCard: async (id: number) => {
+            const card = await db.query.card(id);
+            set((state) => ({ ...state, card: card, id: id, tokenCache: undefined }));
+            return card?.name;
+        },
+        updateCard: (card: CharacterCardData) => {
+            set((state) => ({ ...state, card: card }));
+        },
+        unloadCard: () => {
+            set((state) => ({
+                ...state,
+                id: undefined,
+                card: undefined,
+                tokenCache: undefined,
+            }));
+        },
+        getImage: () => {
+            return getImageDir(get().card?.image_id ?? 0);
+        },
+        updateImage: async (sourceURI: string) => {
+            const id = get().id;
+            const oldImageID = get().card?.image_id;
+            const card = get().card;
+            if (!id || !oldImageID || !card) {
+                Logger.errorToast('Could not get data, something very wrong has happened!');
+                return;
+            }
+            const imageID = Date.now();
+            await db.mutate.updateCardField('image_id', imageID, id);
+            await deleteImage(oldImageID);
+            await copyImage(sourceURI, imageID);
+            card.image_id = imageID;
+            set((state) => ({ ...state, card: card }));
+        },
+        getCache: (charName: string) => {
+            const cache = get().tokenCache;
+            const card = get().card;
+            if (cache?.otherName && cache.otherName === useUserCard.getState().card?.name)
+                return cache;
+
+            if (!card)
+                return {
+                    otherName: charName,
+                    description_length: 0,
+                    examples_length: 0,
+                    personality_length: 0,
+                    scenario_length: 0,
+                };
+            const description = replaceMacrosUtil(card.description ?? '');
+            const examples = replaceMacrosUtil(card.mes_example ?? '');
+            const personality = replaceMacrosUtil(card.personality ?? '');
+            const scenario = replaceMacrosUtil(card.scenario ?? '');
+
+            const getTokenCount = Tokenizer.getTokenizer();
+
+            const newCache = {
+                otherName: charName,
+                description_length: getTokenCount(description),
+                examples_length: getTokenCount(examples),
+                personality_length: getTokenCount(personality),
+                scenario_length: getTokenCount(scenario),
+            };
+            set((state) => ({ ...state, tokenCache: newCache }));
+            return newCache;
+        },
+    }));
+
+    export namespace db {
+        export namespace query {
+            export const cardQuery = (charId: number) => {
+                return database.query.characters.findFirst({
+                    where: eq(characters.id, charId),
+                    with: {
+                        tags: {
+                            columns: {
+                                character_id: false,
+                            },
+                            with: {
+                                tag: true,
+                            },
+                        },
+                        alternate_greetings: true,
+                    },
+                });
+            };
+
+            export const card = async (charId: number): Promise<CharacterCardData | undefined> => {
+                const data = await cardQuery(charId);
+                return data;
+            };
+
+            export const cardList = async (
+                type: 'character' | 'user',
+                orderBy: 'id' | 'modified' = 'id'
+            ) => {
+                const query = await database.query.characters.findMany({
+                    columns: {
+                        id: true,
+                        name: true,
+                        image_id: true,
+                        last_modified: true,
+                    },
+                    with: {
+                        tags: {
+                            columns: {
+                                character_id: false,
+                            },
+                            with: {
+                                tag: true,
+                            },
+                        },
+                        chats: {
+                            columns: {
+                                id: true,
+                            },
+                            limit: 1,
+                            orderBy: desc(chats.last_modified),
+                            with: {
+                                messages: {
+                                    columns: {
+                                        id: true,
+                                        name: true,
+                                    },
+                                    limit: 1,
+                                    orderBy: desc(chatEntries.id),
+                                    with: {
+                                        swipes: {
+                                            columns: {
+                                                swipe: true,
+                                            },
+                                            orderBy: desc(chatSwipes.id),
+                                            limit: 1,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    where: (characters, { eq }) => eq(characters.type, type),
+                    orderBy: orderBy === 'id' ? characters.id : desc(characters.last_modified),
+                });
+
+                return query.map((item) => ({
+                    ...item,
+                    latestChat: item.chats[0]?.id,
+                    latestSwipe: item.chats[0]?.messages[0]?.swipes[0]?.swipe,
+                    latestName: item.chats[0]?.messages[0]?.name,
+                    last_modified: item.last_modified ?? 0,
+                    tags: item.tags.map((item) => item.tag.tag),
+                }));
+            };
+
+            export const cardListQuery = (
+                type: 'character' | 'user',
+                orderBy: 'id' | 'modified' = 'id'
+            ) => {
+                return database.query.characters.findMany({
+                    columns: {
+                        id: true,
+                        name: true,
+                        image_id: true,
+                        last_modified: true,
+                    },
+                    with: {
+                        tags: {
+                            columns: {
+                                character_id: false,
+                            },
+                            with: {
+                                tag: true,
+                            },
+                        },
+                        chats: {
+                            columns: {
+                                id: true,
+                            },
+                            limit: 1,
+                            orderBy: desc(chats.last_modified),
+                            with: {
+                                messages: {
+                                    columns: {
+                                        id: true,
+                                        name: true,
+                                    },
+                                    limit: 1,
+                                    orderBy: desc(chatEntries.id),
+                                    with: {
+                                        swipes: {
+                                            columns: {
+                                                swipe: true,
+                                            },
+                                            orderBy: desc(chatSwipes.id),
+                                            limit: 1,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    where: (characters, { eq }) => eq(characters.type, type),
+                    orderBy: orderBy === 'id' ? characters.id : desc(characters.last_modified),
+                });
+            };
+
+            export const cardExists = async (charId: number) => {
+                return await database.query.characters.findFirst({
+                    where: eq(characters.id, charId),
+                });
+            };
+        };
+
+        export namespace mutate {
+            export const createChat = async (charId: number) => {
+                const card = await query.card(charId);
+                if (!card) {
+                    Logger.error('Character does not exist!');
+                    return;
+                }
+                const userId = Characters.useUserCard.getState().id;
+                const charName = card.name;
+                return await database.transaction(async (tx) => {
+                    if (!card || !charName) return;
+                    const [{ chatId }, ..._] = await tx
+                        .insert(chats)
+                        .values({
+                            character_id: charId,
+                            user_id: userId ?? null,
+                        })
+                        .returning({ chatId: chats.id });
+
+                    if (!mmkv.getBoolean(AppSettings.CreateFirstMes)) return chatId;
+
+                    const [{ entryId }, ...__] = await tx
+                        .insert(chatEntries)
+                        .values({
+                            chat_id: chatId,
+                            is_user: false,
+                            name: card.name ?? '',
+                            order: 0,
+                        })
+                        .returning({ entryId: chatEntries.id });
+
+                    await tx.insert(chatSwipes).values({
+                        entry_id: entryId,
+                        swipe: convertToFormatInstruct(replaceMacrosUtil(card.first_mes ?? '')), // L379: Fixed
+                    });
+
+                    card?.alternate_greetings?.forEach(async (data) => {
+                        await tx.insert(chatSwipes).values({
+                            entry_id: entryId,
+                            swipe: convertToFormatInstruct(replaceMacrosUtil(data.greeting ?? '')), // L399: Fixed
+                        });
+                    });
+                    await Characters.db.mutate.updateModified(charId); // L405: Context for error
+                    return chatId;
+                });
+            };
+
+            export const updateCard = async (card: CharacterCardData, cardID: number) => {
+                if (!card) return;
+
+                try {
+                    await database
+                        .update(characters)
+                        .set({
+                            description: card.description,
+                            first_mes: card.first_mes,
+                            name: card.name,
+                            personality: card.personality,
+                            scenario: card.scenario,
+                            mes_example: card.mes_example,
+                        })
+                        .where(eq(characters.id, cardID));
+                    await Promise.all(
+                        card.alternate_greetings.map(async (item) => {
+                            await database
+                                .update(characterGreetings)
+                                .set({ greeting: item.greeting })
+                                .where(eq(characterGreetings.id, item.id));
+                        })
+                    );
+                    if (card.tags) {
+                        const newTags = card.tags
+                            .filter((item) => item.tag_id === -1)
+                            .map((tag) => ({ tag: tag.tag.tag }));
+
+                        const currentTagIDs = card.tags
+                            .filter((item) => item.tag_id !== -1)
+                            .map((item) => ({
+                                character_id: card.id,
+                                tag_id: item.tag.id,
+                            }));
+                        const newTagIDs: (typeof characterTags.$inferSelect)[] = [];
+
+                        if (newTags.length !== 0) {
+                            await database
+                                .insert(tags)
+                                .values(newTags)
+                                .onConflictDoNothing()
+                                .returning({
+                                    id: tags.id,
+                                })
+                                .then((result) => {
+                                    newTagIDs.push(
+                                        ...result.map((item) => ({
+                                            character_id: card.id,
+                                            tag_id: item.id,
+                                        }))
+                                    );
+                                });
+                        }
+                        const mergedTags = [...currentTagIDs, ...newTagIDs];
+                        if (mergedTags.length !== 0)
+                            await database
+                                .insert(characterTags)
+                                .values(mergedTags)
+                                .onConflictDoNothing();
+
+                        const ids = mergedTags.map((item) => item.tag_id);
+                        await database
+                            .delete(characterTags)
+                            .where(
+                                and(
+                                    notInArray(characterTags.tag_id, ids),
+                                    eq(characterTags.character_id, card.id)
+                                )
+                            );
+
+                        await database
+                            .delete(tags)
+                            .where(
+                                notInArray(
+                                    tags.id,
+                                    database
+                                        .select({ tag_id: characterTags.tag_id })
+                                        .from(characterTags)
+                                )
+                            );
+                    }
+                } catch (e) {
+                    Logger.warn(`${e}`);
+                }
+            };
+
+
+
+
+            
+
+            export const addAltGreeting = async (charId: number) => {
+                const [{ id }, ..._] = await database
+                    .insert(characterGreetings)
+                    .values({
+                        character_id: charId,
+                        greeting: '',
+                    })
+                    .returning({ id: characterGreetings.id });
+
+
+
+
+import { db as database } from '@db';
+import { Tokenizer } from '@lib/engine/Tokenizer';
+import { Storage } from '@lib/enums/Storage';
+import { replaceMacros as replaceMacrosUtil } from '@lib/utils/Macros';
+import { convertToFormatInstruct } from '@lib/utils/TextFormat';
+import { characterGreetings, characterTags, characters, chatEntries, chatSwipes, chats, tags } from 'db/schema';
+import { and, desc, eq, inArray, notInArray } from 'drizzle-orm';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { randomUUID } from 'expo-crypto';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FS from 'expo-file-system';
+import { useEffect } from 'react';
+import { z } from 'zod';
+import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
+import { Logger } from './Logger';
+import { mmkv, mmkvStorage } from '../storage/MMKV';
+import { getPngChunkText } from '../utils/PNG';
+import { Asset } from 'expo-asset';
+import { AppSettings } from '../constants/GlobalValues';
+
+export type CharInfo = {
+    name: string;
+    id: number;
+    image_id: number;
+    last_modified: number;
+    tags: string[];
+    latestSwipe?: string;
+    latestName?: string;
+    latestChat?: number;
+};
+
+type CharacterTokenCache = {
+    otherName: string;
+    description_length: number;
+    examples_length: number;
+    personality_length: number;
+    scenario_length: number;
+};
+
+type CharacterCardState = {
+    card?: CharacterCardData;
+    tokenCache: CharacterTokenCache | undefined;
+    id: number | undefined;
+    updateCard: (card: CharacterCardData) => void;
+    setCard: (id: number) => Promise<string | undefined>;
+    unloadCard: () => void;
+    getImage: () => string;
+    updateImage: (sourceURI: string) => void;
+    getCache: (otherName: string) => CharacterTokenCache;
+};
+
+export type CharacterCardData = Awaited<ReturnType<typeof Characters.db.query.cardQuery>>;
+
+export namespace Characters {
+    export const useUserCard = create<CharacterCardState>()(
+        persist(
+            (set, get) => ({
+                id: undefined,
+                card: undefined,
+                tokenCache: undefined,
+                setCard: async (id: number) => {
+                    const card = await db.query.card(id);
+                    if (card)
+                        set((state) => ({ ...state, card: card, id: id, tokenCache: undefined }));
+                    return card?.name;
+                },
+                unloadCard: () => {
+                    set((state) => ({
+                        ...state,
+                        id: undefined,
+                        card: undefined,
+                        tokenCache: undefined,
+                    }));
+                },
+                updateCard: (card: CharacterCardData) => {
+                    set((state) => ({ ...state, card: card }));
+                },
+                getImage: () => {
+                    return getImageDir(get().card?.image_id ?? 0);
+                },
+                updateImage: async (sourceURI: string) => {
+                    const id = get().id;
+                    const oldImageID = get().card?.image_id;
+                    const card = get().card;
+                    if (!id || !oldImageID || !card) {
+                        Logger.errorToast('Could not get data, something very wrong has happened!');
+                        return;
+                    }
+                    const imageID = Date.now();
+                    await db.mutate.updateCardField('image_id', imageID, id);
+                    await deleteImage(oldImageID);
+                    await copyImage(sourceURI, imageID);
+                    card.image_id = imageID;
+                    set((state) => ({ ...state, card: card }));
+                },
+                getCache: (userName: string) => {
+                    const cache = get().tokenCache;
+                    if (cache && cache?.otherName === userName) return cache;
+
+                    const card = get().card;
+                    if (!card)
+                        return {
+                            otherName: userName,
+                            description_length: 0,
+                            examples_length: 0,
+                            personality_length: 0,
+                            scenario_length: 0,
+                        };
+                    const description = replaceMacrosUtil(card.description ?? '');
+                    const examples = replaceMacrosUtil(card.mes_example ?? '');
+                    const personality = replaceMacrosUtil(card.personality ?? '');
+                    const scenario = replaceMacrosUtil(card.scenario ?? '');
+
+                    const getTokenCount = Tokenizer.getTokenizer();
+
+                    const newCache: CharacterTokenCache = {
+                        otherName: userName,
+                        description_length: getTokenCount(description),
+                        examples_length: getTokenCount(examples),
+                        personality_length: getTokenCount(personality),
+                        scenario_length: getTokenCount(scenario),
+                    };
+
+                    set((state) => ({ ...state, tokenCache: newCache }));
+                    return newCache;
+                },
+            }),
+            {
+                name: Storage.UserCard,
                 storage: createJSONStorage(() => mmkvStorage), // L139: Fixed
                 version: 2,
                 migrate: async (persistedState: any, version) => {
@@ -489,6 +998,13 @@ export namespace Characters {
                     Logger.warn(`${e}`);
                 }
             };
+
+
+
+
+
+
+            
             
             
             export const addAltGreeting = async (charId: number) => {
