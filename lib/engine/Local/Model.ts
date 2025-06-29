@@ -13,7 +13,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { GGMLNameMap, GGMLType } from './GGML';
 import { Platform } from 'react-native';
 
-export type ModelData = Omit<ModelDataType, 'id' | 'create_date' | 'last_modified'>;
+export type ModelData = Omit<ModelDataType, 'id' | 'create_date' | 'last_modified'> & { file_path: string };
 
 export namespace Model {
     export const getModelList = async () => {
@@ -76,7 +76,7 @@ export namespace Model {
         const fileList = await getModelList();
         if (Platform.OS === 'android') {
             for (const item of modelList) {
-                if (item.name === '' || !(await getInfoAsync(item.file_path as string)).exists) {
+                if (item.name === '' || !(await getInfoAsync(item.file_path)).exists) {
                     Logger.warnToast(`Model Missing, its entry will be deleted: ${item.name}`);
                     await db.delete(model_data).where(eq(model_data.id, item.id));
                 }
@@ -129,7 +129,6 @@ export namespace Model {
             architecture: 'N/A',
         };
         for (const key in initial) {
-            if (key === 'file' || key === 'file_path') continue;
             const initialV = initial[key as keyof ModelData];
             const dataV = data[key as keyof ModelData];
             if (initialV !== dataV) return false;
