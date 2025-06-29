@@ -881,20 +881,19 @@ export const createChat = async (charId: number) => {
     };
 
     export const useCharacterUpdater = () => {
-        const { id, updateCard } = useCharacterCard((state) => ({
-            id: state.id,
-            updateCard: state.updateCard,
-        }));
+    const { id, updateCard } = useCharacterCard((state) => ({
+        id: state.id,
+        updateCard: state.updateCard,
+    }));
 
-        const { data } = useLiveQuery(db.query.cardQuery(id ?? -1));
+    const { data } = useLiveQuery(db.query.cardQuery(id ?? -1));
 
-        useEffect(() => {
-            if (id && id === data?.id) {
-                if (data) updateCard(data);
-            }
-        }, [data]);
-    };
-}
+    useEffect(() => {
+        if (id && id === data?.id) {
+            if (data) updateCard(data);
+        }
+    }, [data, id, updateCard]); // Added all dependencies for correctness
+};
 
 const characterCardV1Schema = z.object({
     name: z.string(),
