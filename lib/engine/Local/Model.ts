@@ -32,9 +32,13 @@ export namespace Model {
         return getDocumentAsync({
             copyToCacheDirectory: false,
         }).then(async (result) => {
-            if (result.canceled) return;
+            if (result.canceled || !result.assets[0]) return;
             const file = result.assets[0];
-            const name = file.name;
+            const name = file.name as string; // Type assertion for safety
+            if (!name) {
+                Logger.errorToast('Import Failed: File name is undefined');
+                return;
+            }
             const newdir = `${AppDirectory.ModelPath}${name}`;
             Logger.infoToast('Importing file...');
             const success = await copyAsync({
@@ -43,7 +47,7 @@ export namespace Model {
             })
                 .then(() => true)
                 .catch((error) => {
-                    Logger.errorToast(`Import Failed: ${String(error)}`); // L75-76: Fixed
+                    Logger.errorToast(`Import Failed: ${String(error)}`);
                     return false;
                 });
             if (!success) return;
@@ -55,7 +59,7 @@ export namespace Model {
         return getDocumentAsync({
             copyToCacheDirectory: false,
         }).then(async (result) => {
-            if (result.canceled) return;
+            if (result.canceled || !result.assets[0]) return;
             const file = result.assets[0];
             Logger.infoToast('Importing file...');
             if (!file) {
@@ -70,21 +74,26 @@ export namespace Model {
     export const verifyModelList = async () => {
         let modelList = await db.query.model_data.findMany();
         const fileList = await getModelList();
-        if (Platform.OS === 'android')
-            modelList.forEach(async (item) => {
+        if (Platform.OS === 'android') {
+            for (const item of modelList) {
                 if (item.name === '' || !(await getInfoAsync(item.file_path as string)).exists) {
                     Logger.warnToast(`Model Missing, its entry will be deleted: ${item.name}`);
                     await db.delete(model_data).where(eq(model_data.id, item.id));
                 }
-            });
+            }
+        }
         modelList = await db.query.model_data.findMany();
-        fileList.forEach(async (item) => {
-            if (modelList.some((model_data) => model_data.file === item)) return;
-            await createModelData(`${item}`);
-        });
+        for (const item of fileList) {
+            if (modelList.some((model_data) => model_data.file === item)) continue;
+            await createModelData(item);
+        }
     };
 
     export const createModelData = async (filename: string, deleteOnFailure: boolean = false) => {
+        if (!filename) {
+            Logger.errorToast('Filename invalid, Import Failed');
+            return false;
+        }
         return setModelDataInternal(filename, `${AppDirectory.ModelPath}${filename}`, deleteOnFailure);
     };
 
@@ -95,7 +104,7 @@ export namespace Model {
     ) => {
         if (!filename) {
             Logger.errorToast('Filename invalid, Import Failed');
-            return;
+            return false;
         }
         return setModelDataInternal(filename, newdir, deleteOnFailure);
     };
@@ -105,7 +114,7 @@ export namespace Model {
     };
 
     export const updateName = async (name: string, id: number) => {
-        await db.update(model_data).set({ name: name }).where(eq(model_data.id, id));
+        await db.update(model_data).set({ name }).where(eq(model_data.id, id));
     };
 
     export const isInitialEntry = (data: ModelData) => {
@@ -131,7 +140,7 @@ export namespace Model {
     const initialModelEntry = (filename: string, file_path: string) => ({
         context_length: 0,
         file: filename,
-        file_path: file_path,
+        file_path,
         name: 'N/A',
         file_size: 0,
         params: 'N/A',
@@ -145,7 +154,7 @@ export namespace Model {
         deleteOnFailure: boolean
     ) => {
         try {
-            const [{ id }, ...rest] = await db
+            const [{ id }] = await db
                 .insert(model_data)
                 .values(initialModelEntry(filename, file_path))
                 .returning({ id: model_data.id });
@@ -153,13 +162,13 @@ export namespace Model {
             const modelInfo: any = modelContext.model;
             const modelType = modelInfo.metadata?.['general.architecture'];
             const modelDataEntry = {
-                context_length: modelInfo.metadata?.[modelType + '.context_length'] ?? 0,
+                context_length: Number(modelInfo.metadata?.[modelType + '.context_length'] ?? 0),
                 file: filename,
-                file_path: file_path,
+                file_path,
                 name: modelInfo.metadata?.['general.name'] ?? 'N/A',
-                file_size: modelInfo.size ?? 0,
+                file_size: Number(modelInfo.size ?? 0),
                 params: modelInfo.metadata?.['general.size_label'] ?? 'N/A',
-                quantization: modelInfo.metadata?.['general.file_type'] ?? '-1',
+                quantization: String(modelInfo.metadata?.['general.file_type'] ?? '-1'),
                 architecture: modelType ?? 'N/A',
             };
             Logger.info(`New Model Data:\n${modelDataText(modelDataEntry)}`);
@@ -168,15 +177,15 @@ export namespace Model {
             return true;
         } catch (e) {
             Logger.errorToast(`Failed to create data: ${String(e)}`);
-            if (deleteOnFailure) deleteAsync(file_path, { idempotent: true });
+            if (deleteOnFailure) await deleteAsync(file_path, { idempotent: true });
             return false;
         }
     };
 
     const modelDataText = (data: ModelData) => {
         const quantValue = parseInt(data.quantization, 10) as GGMLType;
-        const quantType = GGMLNameMap[quantValue];
-        return `Context length: ${data.context_length ?? 'N/A'}\nFile: ${data.file}\nName: ${data.name ?? 'N/A'}\nSize: ${(data.file_size && readableFileSize(data.file_size)) ?? 'N/A'}\nParams: ${data.params ?? 'N/A'}\nQuantization: ${quantType ?? 'N/A'}\nArchitecture: ${data.architecture ?? 'N/A'}`;
+        const quantType = GGMLNameMap[quantValue] ?? 'N/A';
+        return `Context length: ${data.context_length ?? 'N/A'}\nFile: ${data.file}\nName: ${data.name ?? 'N/A'}\nSize: ${(data.file_size && readableFileSize(data.file_size)) ?? 'N/A'}\nParams: ${data.params ?? 'N/A'}\nQuantization: ${quantType}\nArchitecture: ${data.architecture ?? 'N/A'}`;
     };
 
     const modelExists = async (modelName: string) => {
@@ -214,7 +223,7 @@ export namespace KV {
                     set((state) => ({ ...state, kvCacheLoaded: b }));
                 },
                 setKvCacheTokens: (tokens: number[]) => {
-                    set((state) => ({ ...state, kvCacheTokens: tokens }));
+                    set((state) => { return { ...state, kvCacheTokens: tokens }; });
                 },
                 verifyKVCache: (tokens: number[]) => {
                     const cachedTokens = get().kvCacheTokens;
