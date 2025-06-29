@@ -665,32 +665,45 @@ export const createChat = async (charId: number) => {
     };
 
     export const duplicateCard = async (charId: number) => {
-        const card = await db.query.card(charId);
+    const originalCard = await db.query.card(charId);
+    if (!originalCard) {
+        Logger.errorToast('Failed to copy card: Card does not exist');
+        return;
+    }
 
-        if (!card) {
-            Logger.errorToast('Failed to copy card: Card does not exist');
-            return;
-        }
-        const imageInfo = await FS.getInfoAsync(getImageDir(card.image_id));
-
-        const cacheLoc = imageInfo.exists ? `${FS.cacheDirectory}${card.image_id}` : '';
-        if (imageInfo.exists)
-            await FS.copyAsync({
-                from: getImageDir(card.image_id),
-                to: cacheLoc,
-            });
-        const now = Date.now();
-        card.last_modified = now;
-        card.image_id = now;
-        const cv2 = convertDBDataToCV2(card);
-        if (!cv2) {
-            Logger.errorToast('Failed to copy card');
-            return;
-        }
-        await createCharacter(cv2, cacheLoc)
-            .then(() => Logger.info(`Card cloned: ${card.name}`))
-            .catch((e) => Logger.info(`Failed to clone card: ${e}`));
+    const now = Date.now();
+    const newImageId = now;
+    const duplicatedCardData: CharacterCardData = {
+        ...originalCard,
+        id: undefined, // Let Drizzle assign new ID
+        image_id: newImageId,
+        last_modified: now,
+        name: `Copy of ${originalCard.name}`,
+        alternate_greetings: originalCard.alternate_greetings.map(g => ({ ...g, id: undefined })),
+        tags: originalCard.tags.map(t => ({ ...t, character_id: undefined })),
+        chats: [],
+        latestSwipe: undefined,
+        latestName: undefined,
+        latestChat: undefined,
     };
+
+    let imageToCopyUri: string | undefined = undefined;
+    const originalImagePath = getImageDir(originalCard.image_id);
+    const imageInfo = await FS.getInfoAsync(originalImagePath);
+    if (imageInfo.exists) {
+        const tempCacheLoc = `${FS.cacheDirectory}${newImageId}`;
+        await FS.copyAsync({
+            from: originalImagePath,
+            to: tempCacheLoc,
+        });
+        imageToCopyUri = tempCacheLoc;
+    }
+
+    await db.mutate.createCard(duplicatedCardData, imageToCopyUri)
+        .then(() => Logger.info(`Card cloned: ${duplicatedCardData.name}`))
+        .catch((e) => Logger.error(`Failed to clone card: ${String(e)}`));
+};
+
 
     export const createCharacterFromV1JSON = async (data: any, uri: string | undefined = undefined) => {
         const result = characterCardV1Schema.safeParse(data);
