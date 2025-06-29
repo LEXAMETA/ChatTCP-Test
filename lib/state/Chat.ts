@@ -145,47 +145,42 @@ export namespace Chats {
         data: undefined,
         buffer: { data: '' },
         startGenerating: (swipeId: number) => {
-            useInference.getState().startGenerating(swipeId)
+            useInference.getState().startGenerating(swipeId);
         },
-        // TODO : Replace this function
         stopGenerating: async () => {
-            const cachedSwipeId = useInference.getState().currentSwipeId
-            Logger.info(`Saving Chat`)
-            await get().updateFromBuffer(cachedSwipeId)
-            useInference.getState().stopGenerating()
-            get().setBuffer({ data: '' })
+            const cachedSwipeId = useInference.getState().currentSwipeId;
+            Logger.info(`Saving Chat`);
+            await get().updateFromBuffer(cachedSwipeId); // L368: Added semicolons
+            useInference.getState().stopGenerating();
+            get().setBuffer({ data: '' });
         },
         load: async (chatId: number) => {
-            const data = await db.query.chat(chatId)
-
+            const data = await database.query.chat(chatId);
             if (data?.user_id && mmkv.getBoolean(AppSettings.AutoLoadUser)) {
-                const userID = Characters.useUserCard.getState().id
+                const userID = Characters.useUserCard.getState().id;
                 if (userID !== data.user_id) {
-                    Logger.info('Autoloading User with ID: ' + data.user_id)
-                    await Characters.useUserCard.getState().setCard(data.user_id)
-                    const name = Characters.useUserCard.getState().card?.name
+                    Logger.info('Autoloading User with ID: ' + data.user_id);
+                    await Characters.useUserCard.getState().setCard(data.user_id);
+                    const name = Characters.useUserCard.getState().card?.name;
                     if (name) {
-                        Logger.infoToast('Loading User : ' + name)
+                        Logger.infoToast('Loading User : ' + name);
                     }
                 }
             }
-
             set((state) => ({
                 ...state,
                 data: data,
-            }))
+            }));
         },
-
         delete: async (chatId: number) => {
-            await db.mutate.deleteChat(chatId)
-            if (get().data?.id === chatId) get().reset()
+            await database.mutate.deleteChat(chatId); // L379: Added semicolon
+            if (get().data?.id === chatId) get().reset();
         },
-
-        reset: () =>
+        reset: () => {
             set((state: ChatState) => ({
                 ...state,
                 data: undefined,
-            })),
+            }));
 
         addEntry: async (name: string, is_user: boolean, message: string) => {
             const messages = get().data?.messages
