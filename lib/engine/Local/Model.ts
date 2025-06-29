@@ -34,7 +34,7 @@ export namespace Model {
         }).then(async (result) => {
             if (result.canceled || !result.assets[0]) return;
             const file = result.assets[0];
-            const name = file.name as string; // Type assertion for safety
+            const name = file.name as string;
             if (!name) {
                 Logger.errorToast('Import Failed: File name is undefined');
                 return;
@@ -137,7 +137,7 @@ export namespace Model {
         return true;
     };
 
-    const initialModelEntry = (filename: string, file_path: string) => ({
+    const initialModelEntry = (filename: string, file_path: string): typeof model_data.$inferInsert => ({
         context_length: 0,
         file: filename,
         file_path,
@@ -146,6 +146,8 @@ export namespace Model {
         params: 'N/A',
         quantization: '-1',
         architecture: 'N/A',
+        create_date: Date.now(),
+        last_modified: Date.now(),
     });
 
     const setModelDataInternal = async (
@@ -161,7 +163,7 @@ export namespace Model {
             const modelContext = await initLlama({ model: file_path, vocab_only: true });
             const modelInfo: any = modelContext.model;
             const modelType = modelInfo.metadata?.['general.architecture'];
-            const modelDataEntry = {
+            const modelDataEntry: typeof model_data.$inferInsert = {
                 context_length: Number(modelInfo.metadata?.[modelType + '.context_length'] ?? 0),
                 file: filename,
                 file_path,
@@ -170,6 +172,8 @@ export namespace Model {
                 params: modelInfo.metadata?.['general.size_label'] ?? 'N/A',
                 quantization: String(modelInfo.metadata?.['general.file_type'] ?? '-1'),
                 architecture: modelType ?? 'N/A',
+                create_date: Date.now(),
+                last_modified: Date.now(),
             };
             Logger.info(`New Model Data:\n${modelDataText(modelDataEntry)}`);
             await modelContext.release();
@@ -223,7 +227,7 @@ export namespace KV {
                     set((state) => ({ ...state, kvCacheLoaded: b }));
                 },
                 setKvCacheTokens: (tokens: number[]) => {
-                    set((state) => { return { ...state, kvCacheTokens: tokens }; });
+                    set((state) => ({ ...state, kvCacheTokens: tokens }));
                 },
                 verifyKVCache: (tokens: number[]) => {
                     const cachedTokens = get().kvCacheTokens;
