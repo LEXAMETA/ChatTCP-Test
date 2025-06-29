@@ -1,7 +1,7 @@
 import { db as database } from '@db';
 import { Tokenizer } from '@lib/engine/Tokenizer';
 import { Storage } from '@lib/enums/Storage';
-import { replaceMacros } from '@lib/utils/Macros';
+import { replaceMacros as replaceMacrosUtil } from '@lib/utils/Macros'; // L4: Alias import
 import { convertToFormatInstruct } from '@lib/utils/TextFormat';
 import { characterGreetings, characterTags, characters, chatEntries, chatSwipes, chats, tags } from 'db/schema';
 import { and, desc, eq, inArray, notInArray } from 'drizzle-orm';
