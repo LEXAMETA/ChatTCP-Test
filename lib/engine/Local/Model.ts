@@ -66,13 +66,14 @@ export namespace Model {
                 Logger.errorToast('Import Failed: File name is missing or invalid.');
                 return;
             }
-            const filename: string = file.name; // Type-safe after check
+            const filename: string = file.name;
             if (await createModelDataExternal(file.uri, filename, true)) {
                 Logger.infoToast('Model Imported Successfully!');
             }
         });
     };
 
+    // Removed duplicate declaration
     export const createModelDataExternal = async (
         newdir: string,
         filename: string,
@@ -98,7 +99,7 @@ export namespace Model {
         }
         modelList = await db.query.model_data.findMany();
         for (const item of fileList) {
-            if (modelList.some((model_data) => model_data.file === item)) continue;
+            if (modelList.some(model => model.file === item)) continue;
             await createModelData(item);
         }
     };
@@ -111,18 +112,6 @@ export namespace Model {
         return setModelDataInternal(filename, `${AppDirectory.ModelPath}${filename}`, deleteOnFailure);
     };
 
-    export const createModelDataExternal = async (
-        newdir: string,
-        filename: string,
-        deleteOnFailure: boolean = false
-    ) => {
-        if (!filename) {
-            Logger.errorToast('Filename invalid, Import Failed');
-            return false;
-        }
-        return setModelDataInternal(filename, newdir, deleteOnFailure);
-    };
-
     export const getModelListQuery = () => {
         return db.query.model_data.findMany();
     };
@@ -131,23 +120,25 @@ export namespace Model {
         await db.update(model_data).set({ name }).where(eq(model_data.id, id));
     };
 
+    // Fixed comparison logic
     export const isInitialEntry = (data: ModelData) => {
-        const initial: ModelData = {
-            file: '',
-            file_path: '',
+        const placeholderValues = {
             context_length: 0,
             name: 'N/A',
             file_size: 0,
             params: 'N/A',
             quantization: '-1',
-            architecture: 'N/A',
+            architecture: 'N/A'
         };
-        for (const key in initial) {
-            const initialV = initial[key as keyof ModelData];
-            const dataV = data[key as keyof ModelData];
-            if (initialV !== dataV) return false;
-        }
-        return true;
+
+        return (
+            data.context_length === placeholderValues.context_length &&
+            data.name === placeholderValues.name &&
+            data.file_size === placeholderValues.file_size &&
+            data.params === placeholderValues.params &&
+            data.quantization === placeholderValues.quantization &&
+            data.architecture === placeholderValues.architecture
+        );
     };
 
     const initialModelEntry = (filename: string, file_path: string): typeof model_data.$inferInsert => ({
@@ -163,6 +154,7 @@ export namespace Model {
         last_modified: Date.now(),
     });
 
+    // Fixed update logic
     const setModelDataInternal = async (
         filename: string,
         file_path: string,
@@ -173,24 +165,30 @@ export namespace Model {
                 .insert(model_data)
                 .values(initialModelEntry(filename, file_path))
                 .returning({ id: model_data.id });
+            
             const modelContext = await initLlama({ model: file_path, vocab_only: true });
             const modelInfo: any = modelContext.model;
             const modelType = modelInfo.metadata?.['general.architecture'];
-            const modelDataEntry: typeof model_data.$inferInsert = {
+            
+            // Exclude create_date from update
+            const updateData: Partial<typeof model_data.$inferInsert> = {
                 context_length: Number(modelInfo.metadata?.[modelType + '.context_length'] ?? 0),
-                file: filename,
-                file_path,
                 name: modelInfo.metadata?.['general.name'] ?? 'N/A',
                 file_size: Number(modelInfo.size ?? 0),
                 params: modelInfo.metadata?.['general.size_label'] ?? 'N/A',
                 quantization: String(modelInfo.metadata?.['general.file_type'] ?? '-1'),
                 architecture: modelType ?? 'N/A',
-                create_date: Date.now(),
                 last_modified: Date.now(),
             };
-            Logger.info(`New Model Data:\n${modelDataText(modelDataEntry)}`);
+
+            Logger.info(`New Model Data:\n${modelDataText({
+                ...updateData,
+                file: filename,
+                file_path
+            } as ModelData)}`);
+            
             await modelContext.release();
-            await db.update(model_data).set(modelDataEntry).where(eq(model_data.id, id));
+            await db.update(model_data).set(updateData).where(eq(model_data.id, id));
             return true;
         } catch (e) {
             Logger.errorToast(`Failed to create data: ${String(e)}`);
@@ -237,10 +235,10 @@ export namespace KV {
                 kvCacheLoaded: false,
                 kvCacheTokens: [],
                 setKvCacheLoaded: (b: boolean) => {
-                    set((state) => ({ ...state, kvCacheLoaded: b }));
+                    set({ kvCacheLoaded: b });
                 },
                 setKvCacheTokens: (tokens: number[]) => {
-                    set((state) => ({ ...state, kvCacheTokens: tokens }));
+                    set({ kvCacheTokens: tokens });
                 },
                 verifyKVCache: (tokens: number[]) => {
                     const cachedTokens = get().kvCacheTokens;
