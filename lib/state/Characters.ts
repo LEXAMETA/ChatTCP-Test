@@ -880,21 +880,39 @@ export const createChat = async (charId: number) => {
         await createCharacterFromImage(cardDefaultDir);
     };
 
+
     export const useCharacterUpdater = () => {
-    const { id, updateCard } = useCharacterCard((state) => ({
-        id: state.id,
-        updateCard: state.updateCard,
-    }));
+        const { id, updateCard } = useCharacterCard((state) => ({
+            id: state.id,
+            updateCard: state.updateCard,
+        }));
 
-    const { data } = useLiveQuery(db.query.cardQuery(id ?? -1));
+        const { data } = useLiveQuery(db.query.cardQuery(id ?? -1));
 
-    useEffect(() => {
-        if (id && id === data?.id) {
-            if (data) updateCard(data);
-        }
-    }, [data, id, updateCard]); // Added all dependencies for correctness
-};
+        useEffect(() => {
+            if (id && id === data?.id) {
+                if (data) updateCard(data);
+            }
+        }, [data, id, updateCard]);
+    };
 
+    export const replaceMacros = (text: string) => {
+        if (text === undefined) return '';
+        let newtext: string = text;
+        const charName = Characters.useCharacterCard.getState().card?.name ?? '';
+        const userName = Characters.useUserCard.getState().card?.name ?? '';
+        const time = new Date();
+        const rules: Macro[] = [
+            { macro: '{{user}}', value: userName },
+            { macro: '{{char}}', value: charName },
+            { macro: '{{time}}', value: time.toLocaleTimeString() },
+            { macro: '{{date}}', value: time.toLocaleDateString() },
+            { macro: '{{day}}', value: weekday[time.getDay()] },
+        ];
+        for (const rule of rules) newtext = newtext.replaceAll(rule.macro, rule.value);
+        return newtext;
+    };
+} // Close Characters namespace
 
 const characterCardV1Schema = z.object({
     name: z.string(),
@@ -960,4 +978,4 @@ const createBlankV2Card = (
             character_version: '',
         },
     };
-};        
+};
