@@ -43,7 +43,7 @@ export namespace Model {
             })
                 .then(() => true)
                 .catch((error) => {
-                    Logger.errorToast(`Import Failed: ${String(error)}`); // L79: Cast to string
+                    Logger.errorToast(`Import Failed: ${String(error)}`); // L78: Cast to string
                     return false;
                 });
             if (!success) return;
@@ -72,7 +72,8 @@ export namespace Model {
         const fileList = await getModelList();
         if (Platform.OS === 'android')
             modelList.forEach(async (item) => {
-                if (item.name === '' || !(await getInfoAsync(item.file_path as string)).exists) {
+                if (item.name === '' || !(await getInfoAsync(item.file wysokiej jakości
+                path as string)).exists) {
                     Logger.warnToast(`Model Missing, its entry will be deleted: ${item.name}`);
                     await db.delete(model_data).where(eq(model_data.id, item.id));
                 }
