@@ -336,30 +336,30 @@ export namespace Chats {
             const mes = message.swipes[message.swipe_id].swipe
 
             set((state: ChatState) => ({ ...state, buffer: { ...state.buffer, data: mes } }))
-   updateFromBuffer: async (cachedSwipeId) => {
-      const NO_VALID_ENTRY = -1;
-      const index = get().data?.messages?.length;
-      if (!index) {
-        Logger.error('Attempted to insert to buffer, but no chat loaded!');
-        return;
-      }
-      const buffer = get().buffer;
-      const updatedSwipe: ChatSwipeUpdated = {
-        id: cachedSwipeId ?? NO_VALID_ENTRY,
-        swipe: buffer.data,
-      };
-      if (updatedSwipe.id === NO_VALID_ENTRY) {
-        Logger.error('Attempted to insert to buffer, but no valid entry was found!');
-        return;
-      }
-      if (buffer.timings) updatedSwipe.timings = buffer.timings;
-      await database.mutate.updateChatSwipe(updatedSwipe);
-      await get().updateEntry(index - 1, buffer.data, {
-        updateFinished: true,
-        verifySwipeId: cachedSwipeId,
-        timings: buffer.timings,
-      });
-    },  
+   updateFromBuffer: async (cachedSwipeId?: number) => {
+            const NO_VALID_ENTRY = -1;
+            const index = get().data?.messages?.length;
+            if (!index) {
+                Logger.error('Attempted to insert to buffer, but no chat loaded!');
+                return;
+            }
+            const buffer = get().buffer;
+            const updatedSwipe: ChatSwipeUpdated = {
+                id: cachedSwipeId ?? NO_VALID_ENTRY,
+                swipe: buffer.data,
+            };
+            if (updatedSwipe.id === NO_VALID_ENTRY) {
+                Logger.error('Attempted to insert to buffer, but no valid entry was found!');
+                return;
+            }
+            if (buffer.timings) updatedSwipe.timings = buffer.timings;
+            await database.mutate.updateChatSwipe(updatedSwipe); // L396: Fixed comma and structure
+            await get().updateEntry(index - 1, buffer.data, {
+                updateFinished: true,
+                verifySwipeId: cachedSwipeId,
+                timings: buffer.timings,
+            });
+        },
         setRegenCache: () => {
             const messages = get()?.data?.messages
             const message = messages?.[messages.length - 1]
