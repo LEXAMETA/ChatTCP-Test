@@ -666,46 +666,46 @@ export const createChat = async (charId: number) => {
 
 
     export namespace db {
-    export namespace mutate {
-        export const duplicateCard = async (charId: number) => {
-            const originalCard = await db.query.card(charId);
-            if (!originalCard) {
-                Logger.errorToast('Failed to copy card: Card does not exist');
-                return;
-            }
+        export namespace mutate {
+            export const duplicateCard = async (charId: number) => {
+                const originalCard = await db.query.card(charId);
+                if (!originalCard) {
+                    Logger.errorToast('Failed to copy card: Card does not exist');
+                    return;
+                }
 
-            const now = Date.now();
-            const newImageId = now;
-            const duplicatedCardData: CharacterCardData = {
-                ...originalCard,
-                id: undefined,
-                image_id: newImageId,
-                last_modified: now,
-                name: `Copy of ${originalCard.name}`,
-                alternate_greetings: originalCard.alternate_greetings.map(g => ({ ...g, id: undefined })),
-                tags: originalCard.tags.map(t => ({ ...t, character_id: undefined })),
-                chats: [],
-                latestSwipe: undefined,
-                latestName: undefined,
-                latestChat: undefined,
+                const now = Date.now();
+                const newImageId = now;
+                const duplicatedCardData: CharacterCardData = {
+                    ...originalCard,
+                    id: undefined,
+                    image_id: newImageId,
+                    last_modified: now,
+                    name: `Copy of ${originalCard.name}`,
+                    alternate_greetings: originalCard.alternate_greetings.map(g => ({ ...g, id: undefined })),
+                    tags: originalCard.tags.map(t => ({ ...t, character_id: undefined })),
+                    chats: [],
+                    latestSwipe: undefined,
+                    latestName: undefined,
+                    latestChat: undefined,
+                };
+
+                let imageToCopyUri: string | undefined = undefined;
+                const originalImagePath = getImageDir(originalCard.image_id);
+                const imageInfo = await FS.getInfoAsync(originalImagePath);
+                if (imageInfo.exists) {
+                    const tempCacheLoc = `${FS.cacheDirectory}${newImageId}`;
+                    await FS.copyAsync({
+                        from: originalImagePath,
+                        to: tempCacheLoc,
+                    });
+                    imageToCopyUri = tempCacheLoc;
+                }
+
+                await db.mutate.createCard(duplicatedCardData, imageToCopyUri)
+                    .then(() => Logger.info(`Card cloned: ${duplicatedCardData.name}`))
+                    .catch((e) => Logger.error(`Failed to clone card: ${String(e)}`));
             };
-
-            let imageToCopyUri: string | undefined = undefined;
-            const originalImagePath = getImageDir(originalCard.image_id);
-            const imageInfo = await FS.getInfoAsync(originalImagePath);
-            if (imageInfo.exists) {
-                const tempCacheLoc = `${FS.cacheDirectory}${newImageId}`;
-                await FS.copyAsync({
-                    from: originalImagePath,
-                    to: tempCacheLoc,
-                });
-                imageToCopyUri = tempCacheLoc;
-            }
-
-            await db.mutate.createCard(duplicatedCardData, imageToCopyUri)
-                .then(() => Logger.info(`Card cloned: ${duplicatedCardData.name}`))
-                .catch((e) => Logger.error(`Failed to clone card: ${String(e)}`));
-        };
 
     let imageToCopyUri: string | undefined = undefined;
     const originalImagePath = getImageDir(originalCard.image_id);
