@@ -22,6 +22,7 @@ const selectorData = [
     { label: 'Item 8', value: '8' },
 ];
 
+
 const buttonVariants = ['primary', 'secondary', 'tertiary', 'critical', 'disabled'] as const;
 
 const ComponentTest = () => {
