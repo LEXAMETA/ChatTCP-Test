@@ -30,6 +30,7 @@ export type CharInfo = {
     latestChat?: number;
 };
 
+
 type CharacterTokenCache = {
     otherName: string;
     description_length: number;
