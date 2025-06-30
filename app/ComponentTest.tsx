@@ -1,17 +1,17 @@
-import ThemedButton from '@components/buttons/ThemedButton'
-import DropdownSheet from '@components/input/DropdownSheet'
-import MultiDropdownSheet from '@components/input/MultiDropdownSheet'
-import StringArrayEditor from '@components/input/StringArrayEditor'
-import ThemedCheckbox from '@components/input/ThemedCheckbox'
-import ThemedSlider from '@components/input/ThemedSlider'
-import ThemedSwitch from '@components/input/ThemedSwitch'
-import ThemedTextInput from '@components/input/ThemedTextInput'
-import Accordion from '@components/views/Accordion'
-import React, { useState } from 'react'
-import { ScrollView, Text, View } from 'react-native'
+import ThemedButton from '@components/buttons/ThemedButton';
+import DropdownSheet from '@components/input/DropdownSheet';
+import MultiDropdownSheet from '@components/input/MultiDropdownSheet';
+import StringArrayEditor from '@components/input/StringArrayEditor';
+import ThemedCheckbox from '@components/input/ThemedCheckbox';
+import ThemedSlider from '@components/input/ThemedSlider';
+import ThemedSwitch from '@components/input/ThemedSwitch';
+import ThemedTextInput from '@components/input/ThemedTextInput';
+import Accordion from '@components/views/Accordion';
+import React, { useState } from 'react';
+import { ScrollView, Text, View } from 'react-native';
 
 const selectorData = [
-    { label: 'Item 0', value: '1' },
+    { label: 'Item 0', value: '0' },
     { label: 'Item 1', value: '1' },
     { label: 'Item 2', value: '2' },
     { label: 'Item 3', value: '3' },
@@ -20,28 +20,33 @@ const selectorData = [
     { label: 'Item 6', value: '6' },
     { label: 'Item 7', value: '7' },
     { label: 'Item 8', value: '8' },
-]
+];
 
-const buttonVariants = ['primary', 'secondary', 'tertiary', 'critical', 'disabled']
+const buttonVariants = ['primary', 'secondary', 'tertiary', 'critical', 'disabled'] as const;
 
 const ComponentTest = () => {
     const [selected, setSelected] = useState<(typeof selectorData)[0]>(selectorData[0]);
-    const [selectedM, setSelectedM] = useState<typeof selectorData>([])
+    const [selectedM, setSelectedM] = useState<typeof selectorData>([]);
     const [slider, setSlider] = useState<number>(0);
-    const [data, setData] = useState<string[]>([])
-    const [textInputData, setTextInputData] = useState('')
-    const [checkbox, setCheckbox] = useState(true)
-    const [sw, setSw] = useState(true)
+    const [data, setData] = useState<string[]>([]);
+    const [textInputData, setTextInputData] = useState('');
+    const [checkbox, setCheckbox] = useState(true);
+    const [sw, setSw] = useState(true);
 
     return (
         <ScrollView
             style={{ flex: 1 }}
             contentContainerStyle={{ rowGap: 16, padding: 16 }}
-            keyboardShouldPersistTaps="always">
+            keyboardShouldPersistTaps="always"
+        >
             <View style={{ rowGap: 8 }}>
                 {buttonVariants.map((item) => (
-                    //@ts-ignore
-                    <ThemedButton variant={item} key={item} label={`Button Variant: ${item}`} />
+                    <ThemedButton
+                        //@ts-ignore
+                        variant={item}
+                        key={item}
+                        label={`Button Variant: ${item}`}
+                    />
                 ))}
             </View>
             <Accordion label="Test Accordion">
@@ -76,7 +81,7 @@ const ComponentTest = () => {
                 labelExtractor={(item) => item.label}
             />
         </ScrollView>
-    )
-}
+    );
+};
 
-export default ComponentTest
+export default ComponentTest;
