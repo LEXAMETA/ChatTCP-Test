@@ -12,6 +12,7 @@ type CharacterNewMenuProps = {
     setNowLoading: (b: boolean) => void;
 };
 
+
 const CharacterNewMenu: React.FC<CharacterNewMenuProps> = ({ nowLoading, setNowLoading }) => {
     const { setCurrentCard } = Characters.useCharacterCard(
         useShallow((state) => ({
