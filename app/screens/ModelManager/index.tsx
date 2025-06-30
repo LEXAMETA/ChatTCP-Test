@@ -1,21 +1,20 @@
-// app/screens/ModelManager/index.tsx
-import ThemedButton from '@components/buttons/ThemedButton'
-import HeaderButton from '@components/views/HeaderButton'
-import HeaderTitle from '@components/views/HeaderTitle'
-import { AntDesign } from '@expo/vector-icons'
-import { Llama } from '@lib/engine/Local/LlamaLocal'
-import { Model } from '@lib/engine/Local/Model'
-import { Theme } from '@lib/theme/ThemeManager'
-import { useLiveQuery } from 'drizzle-orm/expo-sqlite'
-import { useState } from 'react'
-import { StyleSheet, Text, View, FlatList } from 'react-native'
-import * as Progress from 'react-native-progress'
-import Animated, { Easing, SlideInLeft, SlideOutLeft } from 'react-native-reanimated'
+import ThemedButton from '@components/buttons/ThemedButton';
+import HeaderButton from '@components/views/HeaderButton';
+import HeaderTitle from '@components/views/HeaderTitle';
+import { AntDesign } from '@expo/vector-icons';
+import { Llama } from '@lib/engine/Local/LlamaLocal';
+import { Model } from '@lib/engine/Local/Model';
+import { Theme } from '@lib/theme/ThemeManager';
+import { useLiveQuery } from 'drizzle-orm/expo-sqlite';
+import { useState } from 'react';
+import { StyleSheet, Text, View, FlatList } from 'react-native';
+import * as Progress from 'react-native-progress';
+import Animated, { Easing, SlideInLeft, SlideOutLeft } from 'react-native-reanimated';
 
-import ModelEmpty from './ModelEmpty'
-import ModelItem from './ModelItem'
-import ModelNewMenu from './ModelNewMenu'
-import ModelSettings from './ModelSettings'
+import ModelEmpty from './ModelEmpty';
+import ModelItem from './ModelItem';
+import ModelNewMenu from './ModelNewMenu';
+import ModelSettings from './ModelSettings';
 
 type ModelData = {
   id: number;
@@ -32,21 +31,21 @@ type ModelData = {
 };
 
 const ModelManager = () => {
-  const styles = useStyles()
-  const { color } = Theme.useTheme()
+  const styles = useStyles();
+  const { color } = Theme.useTheme();
 
+  // Always use Model for database operations, not "database"
   const { data, updatedAt } = useLiveQuery(Model.getModelListQuery()) as { data: ModelData[], updatedAt: number };
 
-  const [showSettings, setShowSettings] = useState(false)
-
-  const [modelLoading, setModelLoading] = useState(false)
-  const [modelImporting, setModelImporting] = useState(false)
+  const [showSettings, setShowSettings] = useState(false);
+  const [modelLoading, setModelLoading] = useState(false);
+  const [modelImporting, setModelImporting] = useState(false);
 
   const { modelName, loadProgress, setloadProgress } = Llama.useLlama((state) => ({
     modelName: state.model?.name,
     loadProgress: state.loadProgress,
     setloadProgress: state.setLoadProgress,
-  }))
+  }));
 
   return (
     <View style={styles.mainContainer}>
@@ -66,7 +65,8 @@ const ModelManager = () => {
         <Animated.View
           style={{ flex: 1 }}
           entering={SlideInLeft.easing(Easing.inOut(Easing.cubic))}
-          exiting={SlideOutLeft.easing(Easing.inOut(Easing.cubic))}>
+          exiting={SlideOutLeft.easing(Easing.inOut(Easing.cubic))}
+        >
           <View style={styles.modelContainer}>
             {!modelImporting && !modelLoading && data.length !== 0 && (
               <View style={{ flexDirection: 'row' }}>
@@ -101,7 +101,8 @@ const ModelManager = () => {
                     flex: 2,
                     color: color.text._100,
                     textAlign: 'center',
-                  }}>
+                  }}
+                >
                   Importing...
                 </Text>
               </View>
@@ -123,7 +124,8 @@ const ModelManager = () => {
                     flex: 1,
                     color: color.text._100,
                     textAlign: 'center',
-                  }}>
+                  }}
+                >
                   {loadProgress}%
                 </Text>
               </View>
@@ -141,8 +143,8 @@ const ModelManager = () => {
                 index={index}
                 modelLoading={modelLoading}
                 setModelLoading={(b: boolean) => {
-                  if (b) setloadProgress(0)
-                  setModelLoading(b)
+                  if (b) setloadProgress(0);
+                  setModelLoading(b);
                 }}
                 modelImporting={modelImporting}
               />
@@ -166,13 +168,13 @@ const ModelManager = () => {
         onPress={() => setShowSettings(!showSettings)}
       />
     </View>
-  )
-}
+  );
+};
 
-export default ModelManager
+export default ModelManager;
 
 export const useStyles = () => {
-  const { color, spacing, borderRadius, fontSize } = Theme.useTheme()
+  const { color, spacing, borderRadius, fontSize } = Theme.useTheme();
 
   return StyleSheet.create({
     mainContainer: {
@@ -210,5 +212,5 @@ export const useStyles = () => {
     hint: {
       color: color.text._400,
     },
-  })
-}
+  });
+};
