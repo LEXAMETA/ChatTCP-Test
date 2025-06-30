@@ -853,22 +853,6 @@ await Promise.all(
                     return; // Stop execution if Chub URL is invalid; error already reported above
         }
     }
-    Logger.errorToast(`URL not recognized`);
-              } 
-        }
-    }
-    Logger.errorToast(`URL not recognized`);
-}
-
-            if (/chub.ai|characterhub.org/.test(url.hostname)) {
-                const path = url.pathname.replace('/characters/', '');
-                if (/^[^/]+\/[^/]+$/.test(path)) return importCharacterFromChub(path);
-                else {
-                    Logger.errorToast(`Failed to get id from Chub URL`);
-                    return;
-                }
-            }
-
             Logger.errorToast(`URL not recognized`);
         } catch (error) {
             Logger.errorToast(`Invalid URL: ${error}`);
