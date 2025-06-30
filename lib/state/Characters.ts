@@ -1,4 +1,4 @@
-import { db as database } from '@db';
+import { db } from '@db';
 import { Tokenizer } from '@lib/engine/Tokenizer';
 import { Storage } from '@lib/enums/Storage';
 import { replaceMacros as replaceMacrosUtil } from '@lib/utils/Macros';
