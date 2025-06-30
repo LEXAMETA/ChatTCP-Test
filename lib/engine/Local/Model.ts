@@ -23,54 +23,54 @@ export namespace Model {
     export const deleteModelById = async (id: number) => {
         const modelInfo = await db.query.model_data.findFirst({ where: eq(model_data.id, id) });
         if (!modelInfo) return;
-        if (modelInfo.file_path.startsWith(AppDirectory.ModelPath))
+        if (modelInfo.file_path.startsWith(AppDirectory.ModelPath)) {
             await deleteModel(modelInfo.file);
+        }
         await db.delete(model_data).where(eq(model_data.id, id));
     };
 
     export const importModel = async () => {
-        return getDocumentAsync({
+        const result = await getDocumentAsync({
             copyToCacheDirectory: false,
-        }).then(async (result) => {
-            if (result.canceled || !result.assets[0]) return;
-            const file = result.assets[0];
-            const name = file.name as string;
-            if (!name) {
-                Logger.errorToast('Import Failed: File name is undefined');
-                return;
-            }
-            const newdir = `${AppDirectory.ModelPath}${name}`;
-            Logger.infoToast('Importing file...');
-            const success = await copyAsync({
+        });
+        if (result.canceled || !result.assets[0]) return;
+        const file = result.assets[0];
+        const name = file.name as string;
+        if (!name) {
+            Logger.errorToast('Import Failed: File name is undefined');
+            return;
+        }
+        const newdir = `${AppDirectory.ModelPath}${name}`;
+        Logger.infoToast('Importing file...');
+        try {
+            await copyAsync({
                 from: file.uri,
                 to: newdir,
-            })
-                .then(() => true)
-                .catch((error) => {
-                    Logger.errorToast(`Import Failed: ${String(error)}`);
-                    return false;
-                });
-            if (!success) return;
-            if (await createModelData(name, true)) Logger.infoToast(`Model Imported Successfully!`);
-        });
+            });
+        } catch (error) {
+            Logger.errorToast(`Import Failed: ${String(error)}`);
+            return;
+        }
+        if (await createModelData(name, true)) {
+            Logger.infoToast('Model Imported Successfully!');
+        }
     };
 
     export const linkModelExternal = async () => {
-        return getDocumentAsync({
+        const result = await getDocumentAsync({
             copyToCacheDirectory: false,
-        }).then(async (result) => {
-            if (result.canceled || !result.assets[0]) return;
-            const file = result.assets[0];
-            Logger.infoToast('Importing file...');
-            if (!file.name) {
-                Logger.errorToast('Import Failed: File name is missing or invalid.');
-                return;
-            }
-            const filename: string = file.name;
-            if (await createModelDataExternal(file.uri, filename, true)) {
-                Logger.infoToast('Model Imported Successfully!');
-            }
         });
+        if (result.canceled || !result.assets[0]) return;
+        const file = result.assets[0];
+        Logger.infoToast('Importing file...');
+        if (!file.name) {
+            Logger.errorToast('Import Failed: File name is missing or invalid.');
+            return;
+        }
+        const filename: string = file.name;
+        if (await createModelDataExternal(file.uri, filename, true)) {
+            Logger.infoToast('Model Imported Successfully!');
+        }
     };
 
     export const createModelDataExternal = async (
@@ -99,8 +99,6 @@ export namespace Model {
         modelList = await db.query.model_data.findMany(); // Re-fetch updated list
         for (const item of fileList) {
             if (modelList.some(model => model.file === item)) continue;
-            
-            // Explicitly assert `item` as string to clarify its type
             const filename: string = item;
             await createModelData(filename);
         }
@@ -165,11 +163,11 @@ export namespace Model {
                 .insert(model_data)
                 .values(initialModelEntry(filename, file_path))
                 .returning({ id: model_data.id });
-            
+
             const modelContext = await initLlama({ model: file_path, vocab_only: true });
             const modelInfo: any = modelContext.model;
             const modelType = modelInfo.metadata?.['general.architecture'];
-            
+
             const updateData: Partial<typeof model_data.$inferInsert> = {
                 context_length: Number(modelInfo.metadata?.[modelType + '.context_length'] ?? 0),
                 name: modelInfo.metadata?.['general.name'] ?? 'N/A',
@@ -185,7 +183,7 @@ export namespace Model {
                 file: filename,
                 file_path
             } as ModelData)}`);
-            
+
             await modelContext.release();
             await db.update(model_data).set(updateData).where(eq(model_data.id, id));
             return true;
