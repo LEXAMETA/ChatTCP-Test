@@ -357,8 +357,7 @@ export namespace Characters {
             };
         }
 
-        export namespace mutate { // This is the correct and only mutate namespace
-            // In lib/state/Characters.ts, update createChat (around L379)
+        export namespace mutate {
             export const createChat = async (charId: number) => {
                 const card = await query.card(charId);
                 if (!card) {
@@ -391,13 +390,13 @@ export namespace Characters {
 
                     await tx.insert(chatSwipes).values({
                         entry_id: entryId,
-                        swipe: convertToFormatInstruct(replaceMacrosUtil(card.first_mes ?? '')) || '', // Fallback to empty string
+                        swipe: convertToFormatInstruct(replaceMacrosUtil(card.first_mes ?? '')) || '',
                     });
 
                     card?.alternate_greetings?.forEach(async (data) => {
                         await tx.insert(chatSwipes).values({
                             entry_id: entryId,
-                            swipe: convertToFormatInstruct(replaceMacrosUtil(data.greeting ?? '')) || '', // Fallback to empty string
+                            swipe: convertToFormatInstruct(replaceMacrosUtil(data.greeting ?? '')) || '',
                         });
                     });
                     await updateModified(charId);
@@ -584,8 +583,14 @@ export namespace Characters {
                     image_id: newImageId,
                     last_modified: now,
                     name: `Copy of ${originalCard.name}`,
-                    alternate_greetings: originalCard.alternate_greetings.map(g => ({ ...g, id: undefined })),
-                    tags: originalCard.tags.map(t => ({ ...t, character_id: undefined })),
+                    alternate_greetings: originalCard.alternate_greetings.map((g) => ({
+                        ...g,
+                        id: undefined,
+                    })),
+                    tags: originalCard.tags.map((t) => ({
+                        ...t,
+                        character_id: undefined,
+                    })),
                     chats: [],
                     latestSwipe: undefined,
                     latestName: undefined,
@@ -608,8 +613,8 @@ export namespace Characters {
                     .then(() => Logger.info(`Card cloned: ${duplicatedCardData.name}`))
                     .catch((e) => Logger.error(`Failed to clone card: ${String(e)}`));
             };
-        } // Close Characters.db.mutate namespace
-    } // Close Characters.db namespace
+        }
+    }
 
     export const getImageDir = (imageId: number) => {
         return `${FS.documentDirectory}characters/${imageId}.png`;
@@ -731,20 +736,22 @@ export namespace Characters {
             type: ['image/*', 'application/json'],
             multiple: true,
         });
-        if (result.canceled) return; // Corrected from `result.cagin`
-        result.assets.map(async (item) => {
-            const isPNG = item.mimeType?.includes('image/');
-            const isJSON = item.mimeType?.includes('application/json');
-            try {
-                if (isJSON) {
-                    const data = await FS.readAsStringAsync(item.uri);
-                    await createCharacterFromV2JSON(JSON.parse(data));
+        if (result.canceled) return;
+        await Promise.all(
+            result.assets.map(async (item) => {
+                const isPNG = item.mimeType?.includes('image/');
+                const isJSON = item.mimeType?.includes('application/json');
+                try {
+                    if (isJSON) {
+                        const data = await FS.readAsStringAsync(item.uri);
+                        await createCharacterFromV2JSON(JSON.parse(data));
+                    }
+                    if (isPNG) await createCharacterFromImage(item.uri);
+                } catch (e) {
+                    Logger.error(`Failed to create card from '${item.name}': ${e}`);
                 }
-                if (isPNG) await createCharacterFromImage(item.uri);
-            } catch (e) {
-                Logger.error(`Failed to create card from '${item.name}': ${e}`);
-            }
-        });
+            })
+        );
     };
 
     export const importCharacterFromChub = async (character_id: string) => {
@@ -820,29 +827,33 @@ export namespace Characters {
 
         if (/^[^/]+\/[^/]+$/.test(text)) return importCharacterFromChub(text);
 
-        const url = new URL(text);
-        if (/pygmalion.chat/.test(url.hostname)) {
-            const param = new URLSearchParams(url.search);
-            const character_id = param.get('id')?.replaceAll(`"`, '');
-            const path = url.pathname.replace('/character/', '');
-            if (character_id) return importCharacterFromPyg(character_id);
-            else if (uuidRegex.test(path)) return importCharacterFromPyg(path);
-            else {
-                Logger.errorToast(`Failed to get id from Pygmalion URL`);
-                return;
+        try {
+            const url = new URL(text);
+            if (/pygmalion.chat/.test(url.hostname)) {
+                const param = new URLSearchParams(url.search);
+                const character_id = param.get('id')?.replaceAll(`"`, '');
+                const path = url.pathname.replace('/character/', '');
+                if (character_id) return importCharacterFromPyg(character_id);
+                else if (uuidRegex.test(path)) return importCharacterFromPyg(path);
+                else {
+                    Logger.errorToast(`Failed to get id from Pygmalion URL`);
+                    return;
+                }
             }
-        }
 
-        if (/chub.ai|characterhub.org/.test(url.hostname)) {
-            const path = url.pathname.replace('/characters/', '');
-            if (/^[^/]+\/[^/]+$/.test(path)) return importCharacterFromChub(path);
-            else {
-                Logger.errorToast(`Failed to get id from Chub URL`);
-                return;
+            if (/chub.ai|characterhub.org/.test(url.hostname)) {
+                const path = url.pathname.replace('/characters/', '');
+                if (/^[^/]+\/[^/]+$/.test(path)) return importCharacterFromChub(path);
+                else {
+                    Logger.errorToast(`Failed to get id from Chub URL`);
+                    return;
+                }
             }
-        }
 
-        Logger.errorToast(`URL not recognized`);
+            Logger.errorToast(`URL not recognized`);
+        } catch (error) {
+            Logger.errorToast(`Invalid URL: ${error}`);
+        }
     };
 
     export const createDefaultCard = async () => {
@@ -858,7 +869,6 @@ export namespace Characters {
         }
         await createCharacterFromImage(cardDefaultDir);
     };
-
 
     export const useCharacterUpdater = () => {
         const { id, updateCard } = useCharacterCard((state) => ({
@@ -881,17 +891,19 @@ export namespace Characters {
         const charName = Characters.useCharacterCard.getState().card?.name ?? '';
         const userName = Characters.useUserCard.getState().card?.name ?? '';
         const time = new Date();
-        const rules: Macro[] = [ // Assuming Macro is defined elsewhere or will be defined. If not, you might need to define it or adjust the type.
+        const weekday = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        type Macro = { macro: string; value: string };
+        const rules: Macro[] = [
             { macro: '{{user}}', value: userName },
             { macro: '{{char}}', value: charName },
             { macro: '{{time}}', value: time.toLocaleTimeString() },
             { macro: '{{date}}', value: time.toLocaleDateString() },
-            { macro: '{{day}}', value: weekday[time.getDay()] }, // Assuming 'weekday' array is defined somewhere
+            { macro: '{{day}}', value: weekday[time.getDay()] },
         ];
         for (const rule of rules) newtext = newtext.replaceAll(rule.macro, rule.value);
         return newtext;
     };
-} // This is the correct closing brace for the Characters namespace
+}
 
 const characterCardV1Schema = z.object({
     name: z.string(),
