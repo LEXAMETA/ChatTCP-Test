@@ -850,7 +850,7 @@ await Promise.all(
                 if (/^[^/]+\/[^/]+$/.test(path)) return importCharacterFromChub(path);Add commentMore actions
                 else {
                     Logger.errorToast(`Failed to get id from Chub URL`);
-                    return;           Add commentMore actions
+                    return; // Stop execution if Chub URL is invalid; error already reported above
         }
     }
     Logger.errorToast(`URL not recognized`);
