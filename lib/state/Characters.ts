@@ -736,23 +736,24 @@ export namespace Characters {
             type: ['image/*', 'application/json'],
             multiple: true,
         });
+
         if (result.canceled) return;
-        await Promise.all(
-            result.assets.map(async (item) => {
-                const isPNG = item.mimeType?.includes('image/');
-                const isJSON = item.mimeType?.includes('application/json');
-                try {
-                    if (isJSON) {
-                        const data = await FS.readAsStringAsync(item.uri);
-                        await createCharacterFromV2JSON(JSON.parse(data));
-                    }
-                    if (isPNG) await createCharacterFromImage(item.uri);
-                } catch (e) {
-                    Logger.error(`Failed to create card from '${item.name}': ${e}`);
-                }
-            })
-        );
-    };
+await Promise.all(
+    result.assets.map(async (item) => {
+        const isPNG = item.mimeType?.includes('image/');
+        const isJSON = item.mimeType?.includes('application/json');
+        try {
+            if (isJSON) {
+                const data = await FS.readAsStringAsync(item.uri);
+                await createCharacterFromV2JSON(JSON.parse(data));
+            }
+            if (isPNG) await createCharacterFromImage(item.uri);
+        } catch (e) {
+            Logger.error(`Failed to create card from '${item.name}': ${e}`);
+        }
+    })
+);
+
 
     export const importCharacterFromChub = async (character_id: string) => {
         Logger.infoToast(`Importing character from Chub: ${character_id}`);
