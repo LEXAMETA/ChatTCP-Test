@@ -842,6 +842,13 @@ await Promise.all(
         } else {
             Logger.errorToast(`Failed to get id from Pygmalion URL`);
             return;
+              if (/chub.ai|characterhub.org/.test(url.hostname)) {
+                const path = url.pathname.replace('/characters/', '');
+                if (/^[^/]+\/[^/]+$/.test(path)) return importCharacterFromChub(path);Add commentMore actions
+                else {
+                    Logger.errorToast(`Failed to get id from Chub URL`);
+                    return;
+              } 
         }
     }
     Logger.errorToast(`URL not recognized`);
