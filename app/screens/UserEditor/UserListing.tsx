@@ -13,6 +13,7 @@ type CharacterListingProps = {
     user: CharacterData;
 };
 
+
 const DAY_MS = 86400000;
 const getTimeStamp = (oldtime: number) => {
     const now = Date.now();
