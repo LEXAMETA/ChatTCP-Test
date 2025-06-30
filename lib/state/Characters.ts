@@ -827,19 +827,26 @@ export namespace Characters {
 
         if (/^[^/]+\/[^/]+$/.test(text)) return importCharacterFromChub(text);
 
+
         try {
-            const url = new URL(text);
-            if (/pygmalion.chat/.test(url.hostname)) {
-                const param = new URLSearchParams(url.search);
-                const character_id = param.get('id')?.replaceAll(`"`, '');
-                const path = url.pathname.replace('/character/', '');
-                if (character_id) return importCharacterFromPyg(character_id);
-                else if (uuidRegex.test(path)) return importCharacterFromPyg(path);
-                else {
-                    Logger.errorToast(`Failed to get id from Pygmalion URL`);
-                    return;
-                }
-            }
+    const url = new URL(text);
+    if (/pygmalion.chat/.test(url.hostname)) {
+        const param = new URLSearchParams(url.search);
+        const character_id = param.get('id')?.replaceAll(`"`, '');
+        const path = url.pathname.replace('/character/', '');
+        if (character_id) {
+            return importCharacterFromPyg(character_id);
+        } else if (uuidRegex.test(path)) {
+            return importCharacterFromPyg(path);
+        } else {
+            Logger.errorToast(`Failed to get id from Pygmalion URL`);
+            return;
+        }
+    }
+    Logger.errorToast(`URL not recognized`);
+} catch (error) {
+    Logger.errorToast(`Invalid URL: ${error}`);
+}
 
             if (/chub.ai|characterhub.org/.test(url.hostname)) {
                 const path = url.pathname.replace('/characters/', '');
