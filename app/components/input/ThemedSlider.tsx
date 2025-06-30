@@ -15,6 +15,7 @@ type ThemedSliderProps = {
     disabled?: boolean;
 };
 
+
 const clamp = (val: number, min: number, max: number, precision: number) =>
     Math.min(Math.max(parseFloat(val?.toFixed(precision) ?? 0), min), max);
 
