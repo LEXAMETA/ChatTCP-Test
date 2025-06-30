@@ -20,6 +20,7 @@ type ModelSettingsProp = {
     exit: () => void;
 };
 
+
 const ModelSettings: React.FC<ModelSettingsProp> = ({ modelImporting, modelLoading, exit }) => {
     const { config, setConfig } = Llama.useEngineData((state) => ({
         config: state.config,
