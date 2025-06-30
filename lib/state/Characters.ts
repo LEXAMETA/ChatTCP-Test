@@ -583,7 +583,7 @@ export namespace Characters {
                     image_id: newImageId,
                     last_modified: now,
                     name: `Copy of ${originalCard.name}`,
-                    alternate_greetings: originalCard.alternate_greetings.map((g) => ({
+                    alternate_greetings: originalCard.alternate_greetings.map((g) => ({Add commentMore actions
                         ...g,
                         id: undefined,
                     })),
