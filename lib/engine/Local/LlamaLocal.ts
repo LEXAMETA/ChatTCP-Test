@@ -24,6 +24,7 @@ export type CompletionTimings = {
     prompt_n: number;
 };
 
+
 export type CompletionOutput = {
     text: string;
     timings: CompletionTimings;
