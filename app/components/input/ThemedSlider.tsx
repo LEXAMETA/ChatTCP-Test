@@ -1,22 +1,22 @@
-import { Theme } from '@lib/theme/ThemeManager'
-import Slider from '@react-native-community/slider'
-import { useEffect, useState } from 'react'
-import { StyleSheet, Text, TextInput, View } from 'react-native'
+import { Theme } from '@lib/theme/ThemeManager';
+import Slider from '@react-native-community/slider';
+import { useEffect, useState } from 'react';
+import { StyleSheet, Text, TextInput, View } from 'react-native';
 
 type ThemedSliderProps = {
-    label: string
-    value: number
-    onValueChange: (value: number) => void
-    min?: number
-    max?: number
-    step?: number
-    precision?: number
-    showInput?: boolean
-    disabled?: boolean
-}
+    label: string;
+    value: number;
+    onValueChange: (value: number) => void;
+    min?: number;
+    max?: number;
+    step?: number;
+    precision?: number;
+    showInput?: boolean;
+    disabled?: boolean;
+};
 
 const clamp = (val: number, min: number, max: number, precision: number) =>
-    Math.min(Math.max(parseFloat(val?.toFixed(precision) ?? 0), min), max)
+    Math.min(Math.max(parseFloat(val?.toFixed(precision) ?? 0), min), max);
 
 const ThemedSlider: React.FC<ThemedSliderProps> = ({
     label,
@@ -29,38 +29,39 @@ const ThemedSlider: React.FC<ThemedSliderProps> = ({
     showInput = true,
     disabled = false,
 }) => {
-    const styles = useStyles()
-    const { color } = Theme.useTheme()
-    const [textValue, setTextValue] = useState(value.toString())
+    const styles = useStyles();
+    const { color } = Theme.useTheme();
+    const [textValue, setTextValue] = useState(value.toString());
 
-    // This effect ensures that if `value` updates from the parent, this text is properly updated
+    // Keep textValue in sync with external value
     useEffect(() => {
-        if (parseFloat(textValue) !== value)
-            setTextValue(clamp(value, min, max, precision).toString())
-    }, [value])
+        if (parseFloat(textValue) !== value) {
+            setTextValue(clamp(value, min, max, precision).toString());
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value]);
 
-    const clampSlider = (value: number) => clamp(value, min, max, precision)
+    const clampSlider = (v: number) => clamp(v, min, max, precision);
 
     const handleSliderChange = (v: number) => {
-        if (!isNaN(clampSlider(v))) onValueChange(clampSlider(v))
-        setTextValue(clampSlider(v).toString())
-    }
+        if (!isNaN(clampSlider(v))) onValueChange(clampSlider(v));
+        setTextValue(clampSlider(v).toString());
+    };
 
     const handleTextInputChange = (t: string) => {
-        let v = 0
-        setTextValue(t)
-        v = parseFloat(t)
-        if (!isNaN(v)) onValueChange(clampSlider(v))
-    }
+        setTextValue(t);
+        const v = parseFloat(t);
+        if (!isNaN(v)) onValueChange(clampSlider(v));
+    };
 
     const handleEndEdit = () => {
-        const v = parseFloat(textValue)
-        if (!isNaN(v)) onValueChange(clamp(v, min, max, precision))
-        setTextValue(clampSlider(value).toString())
-    }
+        const v = parseFloat(textValue);
+        if (!isNaN(v)) onValueChange(clamp(v, min, max, precision));
+        setTextValue(clampSlider(value).toString());
+    };
 
     return (
-        <View style={{ alignItems: `center` }}>
+        <View style={{ alignItems: 'center' }}>
             {label && (
                 <Text style={disabled ? styles.itemNameDisabled : styles.itemName}>{label}</Text>
             )}
@@ -84,7 +85,6 @@ const ThemedSlider: React.FC<ThemedSliderProps> = ({
                         value={textValue}
                         onChangeText={handleTextInputChange}
                         keyboardType="number-pad"
-                        submitBehavior="blurAndSubmit"
                         onEndEditing={handleEndEdit}
                         onSubmitEditing={handleEndEdit}
                         onBlur={handleEndEdit}
@@ -92,47 +92,42 @@ const ThemedSlider: React.FC<ThemedSliderProps> = ({
                 )}
             </View>
         </View>
-    )
-}
+    );
+};
 
-export default ThemedSlider
+export default ThemedSlider;
 
 const useStyles = () => {
-    const { color, spacing } = Theme.useTheme()
+    const { color, spacing } = Theme.useTheme();
     return StyleSheet.create({
         itemName: {
             color: color.text._100,
         },
-
         itemNameDisabled: {
             color: color.text._700,
         },
-
         sliderContainer: {
-            flexDirection: `row`,
+            flexDirection: 'row',
         },
-
         slider: {
             flex: 9,
             height: 36,
         },
-
         textBox: {
             borderColor: color.neutral._400,
             color: color.text._100,
             borderWidth: 1,
             borderRadius: spacing.l,
             flex: 1.5,
-            textAlign: `center`,
+            textAlign: 'center',
         },
-
         textBoxDisabled: {
             borderColor: color.neutral._700,
             color: color.neutral._700,
             borderWidth: 1,
             borderRadius: spacing.l,
             flex: 1.5,
-            textAlign: `center`,
+            textAlign: 'center',
         },
-    })
-}
+    });
+};
